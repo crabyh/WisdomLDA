@@ -1,3 +1,36 @@
+## SUMMARY
+
+
+## BACKGROUND
+
+
+## THE CHALLENGE
+
+### Workload
+
+### Constraints
+
+
+## RESOURCES
+
+
+## GOALS AND DELIVERABLES
+
+### Plan TO Achieve
+
+### Hope TO Achieve
+
+### Demo
+
+## PLATFROM CHOICE
+
+
+## SCHEDULE
+
+| Time | Task | Status |
+|:----:|:----:|:------:|
+| Week 1 | lalala | hahaha |
+
 ## Welcome to GitHub Pages
 
 You can use the [editor on GitHub](https://github.com/crabyh/618-project/edit/master/index.md) to maintain and preview the content for your website in Markdown files.
