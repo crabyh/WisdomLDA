@@ -34,11 +34,24 @@ We will mainly start the project from scratch. The codes in homework assignment 
 The algorithms and frameworks described in [2] and [3] will guide our implementation.
  
 
-## GOALS AND DELIVERABLES### Plan to AchieveWe are going to use the naive single-thread LDA implementation as the baseline. Our distributed parallel asynchronized version is expected to perform at least 100x faster than the baseline on the Intel cluster.### Hope to AchieveIf we are ahead of schedule, we hope to conduct optimization on the kernel level and potentially leverage GPUs to acceralte the computations.### DemoWe are going to run our program on several large document collections to achieve a certain accuracy and compare the wall time to the naive LDA implementation as well as synchronized parallel LDA implementation.
-
+## GOALS AND DELIVERABLES
+
+### Plan to Achieve
+
+We are going to use the naive single-thread LDA implementation as the baseline. Our distributed parallel asynchronized version is expected to perform at least 100x faster than the baseline on the Intel cluster.
+
+### Hope to Achieve
+
+If we are ahead of schedule, we hope to conduct optimization on the kernel level and potentially leverage GPUs to acceralte the computations.
+
+### Demo
+
+We are going to run our program on several large document collections to achieve a certain accuracy and compare the wall time to the naive LDA implementation as well as synchronized parallel LDA implementation.
+
+
 ## PLATFROM CHOICE
 
-We are planning to implement the project in C++ with OpenMPI library on the Intel cluster with 68-core Xeon Phi processors. We may need to  debug our project on the GHC machines. 
+We are planning to implement the project in C++ with MPI library on the Intel cluster with 68-core Xeon Phi processors. We may need to  debug our project on the GHC machines. 
  
 
 ## SCHEDULE
