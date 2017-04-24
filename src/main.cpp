@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
         std::cout << "Starting loading document collection" << std::endl;
     }
     std::cout << world_rank << ": Hello world!" << std::endl;
-    lda_worker.load();
+
     if (world_rank == MASTER)
         std::cout << "Done!\n";
 
