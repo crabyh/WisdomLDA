@@ -27,8 +27,7 @@ public:
     int num_clocks_per_iter;
     int staleness;
 
-    DistModel model;
-    std::vector<std::vector<int>> documents;
+    DistModel global_model;
 
     double *log_likelihood;
     double *wall_secs;
