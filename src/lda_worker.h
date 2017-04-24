@@ -39,11 +39,18 @@ public:
               double _alpha, double _beta,
               int _num_iters, int _num_clocks_per_iter, int _staleness);
 
-    void load();
-
+public:
     void run();
 
+private:
     void setup();
+    void load();
+    void init_tables();
+    double logDirichlet(vector<double> alpha);
+    double logDirichlet(double alpha, int k);
+    vector<double> getRows(vector<vector<int>> matrix, int columnId);
+    vector<double> getColumns(vector<vector<int>> matrix, int rowId);
+    double getLogLikelihood();
 };
 
 inline LdaWorker::LdaWorker(int _world_size, int _world_rank,
