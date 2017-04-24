@@ -54,9 +54,10 @@ int main(int argc, char **argv) {
                          num_iters, num_clocks_per_iter, staleness);
 
     if (world_rank == MASTER) {
-        std::cout << "Number of processes = " << world_size << "\n";
-        std::cout << "Starting loading document collection\n";
+        std::cout << "Number of processes = " << world_size << std::endl;
+        std::cout << "Starting loading document collection" << std::endl;
     }
+    std::cout << world_rank << ": Hello world!" << std::endl;
     lda_worker.load();
     if (world_rank == MASTER)
         std::cout << "Done!\n";
@@ -74,7 +75,7 @@ int main(int argc, char **argv) {
 
     if (world_rank == MASTER) {
         std::cout << std::setiosflags(std::ios::fixed) << std::setprecision(5);
-        std::cout << time_sol << "sec \n";
+        std::cout << time_sol << "sec" << std::endl;
     }
 
     // Finalize the MPI environment.

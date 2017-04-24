@@ -10,7 +10,7 @@
 
 #include "lda_model.h"
 
-using namespace std;
+#define MASTER 0
 
 class LdaWorker {
 public:
@@ -28,6 +28,11 @@ public:
     int staleness;
 
     DistModel model;
+    std::vector<std::vector<int>> documents;
+
+    double *log_likelihood;
+    double *wall_secs;
+    double total_wall_secs;
 
     LdaWorker(int _world_size, int _world_rank,
               const string &_data_file, const string &_output_dir,
@@ -35,7 +40,7 @@ public:
               double _alpha, double _beta,
               int _num_iters, int _num_clocks_per_iter, int _staleness);
 
-    vector<vector<int>> load();
+    void load();
 
     void run();
 
@@ -59,6 +64,12 @@ inline LdaWorker::LdaWorker(int _world_size, int _world_rank,
                                                       _num_clocks_per_iter),
                                               staleness(_staleness) {}
 
-inline void LdaWorker::setup() {}
+inline void LdaWorker::setup() {
+    if (world_rank == MASTER) {
+        log_likelihood = new double[num_iters];
+        wall_secs = new double[num_iters];
+        total_wall_secs = 0;
+    }
+}
 
 #endif //WISDOMLDA_LDA_WORKER_H

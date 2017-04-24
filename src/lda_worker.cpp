@@ -6,4 +6,4 @@
 
 void LdaWorker::run() {}
 
-vector<vector<int>> LdaWorker::load() {}
+void LdaWorker::load() {}
