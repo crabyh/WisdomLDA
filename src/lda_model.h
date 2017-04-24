@@ -13,31 +13,41 @@ using namespace std;
 
 class DistModel {
 private:
-    vector<vector<int>> word_topic_table;
-    vector<int> topic_table;
-    unordered_map<pair, int> word_topic_table_delta;
-    vector<int> topic_table_delta;
+    vector<vector<int>> word_topic_table_;
+    vector<int> topic_table_;
+    unordered_map<pair, int> word_topic_table_delta_;
+    vector<int> topic_table_delta_;
 
 public:
     DistModel(){}
 
-    void inc_word_topic_table(int word, int topic, int delta);
+    void IncWordTopicTable(int word, int topic, int delta);
 
-    void inc_topic_table(int topic, int delta);
+    void IncTopicTable(int topic, int delta);
 
-    void sync();
+    int GetWordTopicTable(int word, int topic);
+    int GetTopicTable(int topic);
+    void Sync();
 };
 
-inline void DistModel::inc_word_topic_table(int word, int topic, int delta) {
-    word_topic_table[word][topic] += delta;
-    word_topic_table_delta[make_pair(word, topic)] += delta;
+inline void DistModel::IncWordTopicTable(int word, int topic, int delta) {
+    word_topic_table_[word][topic] += delta;
+    word_topic_table_delta_[make_pair(word, topic)] += delta;
 }
 
-inline void DistModel::inc_topic_table(int topic, int delta) {
-    topic_table[topic] += delta;
-    topic_table_delta[topic] += delta;
+inline void DistModel::IncTopicTable(int topic, int delta) {
+    topic_table_[topic] += delta;
+    topic_table_delta_[topic] += delta;
 }
 
-inline void DistModel::sync() {}
+inline int DistModel::GetWordTopicTable(int word, int topic) {
+    return word_topic_table_[word][topic];
+}
+
+inline int DistModel::GetTopicTable(int topic) {
+    return topic_table_[topic];
+}
+
+inline void DistModel::Sync() {}
 
 #endif //WISDOMLDA_LDA_MODEL_H

@@ -62,13 +62,13 @@ int main(int argc, char **argv) {
     if (world_rank == MASTER)
         std::cout << "Done!\n";
 
-    lda_worker.setup();
+    lda_worker.Setup();
 
     double time_sol = 0.0;
 
     MPI_Barrier(MPI_COMM_WORLD);
     double start_time = MPI_Wtime();
-    lda_worker.run();
+    lda_worker.Run();
     MPI_Barrier(MPI_COMM_WORLD);
     double end_time = MPI_Wtime();
     time_sol = (end_time - start_time);

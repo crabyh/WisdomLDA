@@ -5,6 +5,8 @@
 #ifndef WISDOMLDA_LDA_WORKER_H
 #define WISDOMLDA_LDA_WORKER_H
 
+#include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -12,69 +14,82 @@
 
 #define MASTER 0
 
+using namespace std;
+
 class LdaWorker {
 public:
-    int world_size;
-    int world_rank;
+    int world_size_;
+    int world_rank_;
 
-    string data_file;
-    string output_dir;
-    int num_words;
-    int num_topics;
-    double alpha;
-    double beta;
-    int num_iters;
-    int num_clocks_per_iter;
-    int staleness;
+    string data_file_;
+    string output_dir_;
+    int num_words_;
+    int num_topics_;
+    double alpha_;
+    double beta_;
+    int num_iters_;
+    int num_clocks_per_iter_;
+    int staleness_;
 
-    DistModel global_model;
+    DistModel global_model_;
 
-    double *log_likelihood;
-    double *wall_secs;
-    double total_wall_secs;
+    double *log_likelihoods_;
+    double *wall_secs_;
+    double total_wall_secs_;
 
-    LdaWorker(int _world_size, int _world_rank,
-              const string &_data_file, const string &_output_dir,
-              int _num_words, int _num_topics,
-              double _alpha, double _beta,
-              int _num_iters, int _num_clocks_per_iter, int _staleness);
+    LdaWorker(int world_size, int world_rank,
+              const string &data_file, const string &output_dir,
+              int num_words, int num_topics,
+              double alpha, double beta,
+              int num_iters, int num_clocks_per_iter, int staleness);
 
 public:
-    void run();
+    void Run();
+
+    void Setup();
+
+    void Load();
 
 private:
-    void setup();
-    void load();
-    void init_tables();
-    double logDirichlet(vector<double> alpha);
-    double logDirichlet(double alpha, int k);
-    vector<double> getRows(vector<vector<int>> matrix, int columnId);
-    vector<double> getColumns(vector<vector<int>> matrix, int rowId);
-    double getLogLikelihood();
+    void InitTables();
+
+    double LogDirichlet(vector<double> alpha);
+
+    double LogDirichlet(double alpha, int k);
+
+    vector<double> GetRows(vector<vector<int>> matrix, int column_id);
+
+    vector<double> GetColumns(vector<vector<int>> matrix, int row_id);
+
+    double GetLogLikelihood();
 };
 
-inline LdaWorker::LdaWorker(int _world_size, int _world_rank,
-                            const string &_data_file, const string &_output_dir,
-                            int _num_words, int _num_topics,
-                            double _alpha, double _beta,
-                            int _num_iters, int _num_clocks_per_iter,
-                            int _staleness) : world_size(_world_size),
-                                              world_rank(_world_rank),
-                                              data_file(_data_file),
-                                              output_dir(_output_dir),
-                                              num_words(_num_words),
-                                              num_topics(_num_topics),
-                                              alpha(_alpha), beta(_beta),
-                                              num_iters(_num_iters),
-                                              num_clocks_per_iter(
-                                                      _num_clocks_per_iter),
-                                              staleness(_staleness) {}
+inline LdaWorker::LdaWorker(int world_size, int world_rank,
+                            const string &data_file, const string &output_dir,
+                            int num_words, int num_topics,
+                            double alpha, double beta,
+                            int num_iters, int num_clocks_per_iter,
+                            int staleness) : world_size_(world_size),
+                                             world_rank_(world_rank),
+                                             data_file_(data_file),
+                                             output_dir_(output_dir),
+                                             num_words_(num_words),
+                                             num_topics_(num_topics),
+                                             alpha_(alpha), beta_(beta),
+                                             num_iters_(num_iters),
+                                             num_clocks_per_iter_(
+                                                     num_clocks_per_iter),
+                                             staleness_(staleness) {}
 
-inline void LdaWorker::setup() {
-    if (world_rank == MASTER) {
-        log_likelihood = new double[num_iters];
-        wall_secs = new double[num_iters];
-        total_wall_secs = 0;
+inline void LdaWorker::Setup() {
+    if (world_rank_ == MASTER) {
+        log_likelihoods_ = new double[num_iters_];
+        wall_secs_ = new double[num_iters_];
+        total_wall_secs_ = 0;
+        InitTables();
+        // TODO: send the whole table to all workers
+    } else {
+        // TODO: receive the whole table from the master
     }
 }
 
