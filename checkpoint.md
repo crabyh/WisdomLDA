@@ -5,11 +5,12 @@
 
 | Time | Task | Status |
 |:----:|:----:|:------:|
-| Week 1 | Literature survey | Done |
-| Week 2 | Design the system achitecture and implement the naive baseline | Pending |
-| Week 3 | Implement the synchronized distributed LDA | Pending |
-| Week 4 | Modify the synchronized version to the asynchronized one | Pending |
-| Week 5 | Collect benchmarking results and conduct the analysis | Pending |
+| Apr.5 - Apr.9 | Literature survey | Done |
+| Apr.10 - Apr.21 | Design the system architecture and implement the naive baseline | Done |
+| Apr.22 - Apr.28 | Implement the synchronized distributed LDA | Doing |
+| Apr.29 - May.5 | Modify the synchronized version to the asynchronized one | Pending |
+| May.6 - May.8 | Collect benchmarking results | Pending |
+| May.9 - May.12 | Conduct the analysis and write the report | Pending |
 
 
 ## COMPLETED WORK
