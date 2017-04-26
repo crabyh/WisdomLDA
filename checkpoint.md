@@ -16,7 +16,7 @@
 ## COMPLETED WORK
 <!-- One to two paragraphs, summarize the work that you have completed so far. -->
 
-By far both team members have gained a good understanding of gibbs sampling and implemented a sequential version in C++, which is considered as the baseline. The commonly used [Bag Of Words Dataset](https://archive.ics.uci.edu/ml/datasets/Bag+of+Words) is selected as our testing dataset. Another smaller dataset from course 10-605, which consists 18773 documents, 60056 words and 20 topics, runs at the speed of around 5 secs/iteration on the baseline. 
+By far both team members have gained a good understanding of gibbs sampling and implemented a sequential version of program in C++ as our baseline. The commonly used [Bag Of Words Dataset](https://archive.ics.uci.edu/ml/datasets/Bag+of+Words) is selected as our testing dataset. Another smaller dataset from course 10-605, which consists 18773 documents, 60056 words and 20 topics, runs at the speed of around 5 secs/iteration on this program. 
 
 Once the baseline was finished, we moved on to data-parallel LDA implementation as described in the proposal. Currently, we have set up the MPI framework and designed API for major operations. A synchronized, distributed implementation, i.e., AD-LDA proposed by Newman et al., was completed under this framework but has not been tested yet. 
 
