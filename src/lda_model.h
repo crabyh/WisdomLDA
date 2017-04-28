@@ -13,10 +13,11 @@ using namespace std;
 
 class DistModel {
 private:
-    vector<vector<int>> word_topic_table_;
-    vector<int> topic_table_;
+    int **word_topic_table_;
+    int *topic_table_;
     unordered_map<pair, int> word_topic_table_delta_;
-    vector<int> topic_table_delta_;
+    int *topic_table_delta_;
+    int *doc_length_;
 
 public:
     DistModel(){}

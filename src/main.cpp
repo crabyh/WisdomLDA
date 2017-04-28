@@ -42,15 +42,16 @@ int main(int argc, char **argv) {
     string data_file = argv[1];
     string output_dir = argv[2];
     int num_words = atoi(argv[3]) + 1;
-    int num_topics = atoi(argv[4]);
-    double alpha = atof(argv[5]);
-    double beta = atof(argv[6]);
-    int num_iters = atoi(argv[7]);
-    int num_clocks_per_iter = atoi(argv[8]);
-    int staleness = atoi(argv[9]);
+    int num_docs = atoi(argv[4]);
+    int num_topics = atoi(argv[5]);
+    double alpha = atof(argv[6]);
+    double beta = atof(argv[7]);
+    int num_iters = atoi(argv[8]);
+    int num_clocks_per_iter = atoi(argv[9]);
+    int staleness = atoi(argv[10]);
 
     LdaWorker lda_worker(world_size, world_rank, data_file, output_dir,
-                         num_words, num_topics, alpha, beta,
+                         num_words, num_docs, num_topics, alpha, beta,
                          num_iters, num_clocks_per_iter, staleness);
 
     if (world_rank == MASTER) {

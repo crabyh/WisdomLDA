@@ -24,6 +24,7 @@ public:
     string data_file_;
     string output_dir_;
     int num_words_;
+    int num_docs_;
     int num_topics_;
     double alpha_;
     double beta_;
@@ -53,20 +54,20 @@ public:
 private:
     void InitTables();
 
-    double LogDirichlet(vector<double> alpha);
+    double logDirichlet(double *alpha, int length);
 
     double LogDirichlet(double alpha, int k);
 
-    vector<double> GetRows(vector<vector<int>> matrix, int column_id);
+    double *wordTopicTableRows(int columnId);
 
-    vector<double> GetColumns(vector<vector<int>> matrix, int row_id);
+    double *docTopicTableCols(int rowId);
 
     double GetLogLikelihood();
 };
 
 inline LdaWorker::LdaWorker(int world_size, int world_rank,
                             const string &data_file, const string &output_dir,
-                            int num_words, int num_topics,
+                            int num_words, int num_docs, int num_topics,
                             double alpha, double beta,
                             int num_iters, int num_clocks_per_iter,
                             int staleness) : world_size_(world_size),
@@ -74,6 +75,7 @@ inline LdaWorker::LdaWorker(int world_size, int world_rank,
                                              data_file_(data_file),
                                              output_dir_(output_dir),
                                              num_words_(num_words),
+                                             num_docs_(num_docs),
                                              num_topics_(num_topics),
                                              alpha_(alpha), beta_(beta),
                                              num_iters_(num_iters),

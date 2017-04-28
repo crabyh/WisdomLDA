@@ -31,7 +31,7 @@ void LdaWorker::Run() {
                     global_model_.IncWordTopicTable(word, topic, -1);
                     global_model_.IncTopicTable(topic, -1);
 
-                    vector<double> p;
+                    double *p = new double[num_topics_];
                     double norm = 0.0;
                     for (int k = 0; k < num_topics_; k++) {
                         double ak = docTopicTable[d][k] + alpha_;
@@ -40,7 +40,7 @@ void LdaWorker::Run() {
                                     ((double) global_model_.GetTopicTable(k) +
                                      num_words_ * beta_);
                         double pk = ak * bk;
-                        p.push_back(pk);
+                        p[k] = pk;
                         norm += pk;
                     }
 
@@ -54,6 +54,7 @@ void LdaWorker::Run() {
                             break;
                         }
                     }
+                    delete[] p;
 
                     z[d][i] = new_topic;
                     docTopicTable[d][new_topic] += 1;
@@ -91,120 +92,108 @@ void LdaWorker::Run() {
 
 }
 
-void LdaWorker::Load() {
+void load(string dataFile) {
+    w = new int*[numDocs];
+    docLength = new int[numDocs]();
     string line;
-    ifstream file(data_file_);
+    ifstream file (dataFile);
     if (file.is_open()) {
-        int num_line = 0;
+        int doc = 0;
         while (getline(file, line)) {
-            if (num_line % world_size_ == world_rank_) {
-                vector<int> fields;
-                unsigned long last_idx = 0;
-                for (unsigned long i = 0; i < line.length(); i++) {
-                    if (line[i] == ',') {
-                        fields.push_back(stoi(line.substr(last_idx + 1,
-                                                          i - last_idx - 1)));
-                        last_idx = i;
-                    }
+            for (unsigned long i = 0; i < line.length(); i++)
+                if (line[i] == ',') docLength[doc] += 1;
+            int *w_col = new int[docLength[doc]];
+            int index = 0;
+            unsigned long last_i = 0;
+            for (unsigned long i = 0; i < line.length(); i++) {
+                if (line[i] == ',') {
+                    w_col[index] = (stoi(line.substr(last_i + 1, i - last_i - 1)));
+                    last_i = i;
                 }
-                w.push_back(fields);
             }
-            num_line += 1;
+            w[doc] = w_col;
         }
     }
-    for (int i = 0; i < w.size(); i++) {
-        vector<int> vec;
-        for (int j = 0; j < num_topics_; j++) {
-            vec.push_back(0);
-        }
-        docTopicTable.push_back(vec);
+    docTopicTable = new int*[numDocs];
+    for (int i = 0; i < numDocs; i++) {
+        int *docLength_col = new int[numTopics]();
+        docTopicTable[i] = docLength_col;
     }
-    for (int i = 0; i < num_words_; i++) {
-        vector<int> vec;
-        for (int j = 0; j < num_topics_; j++) {
-            vec.push_back(0);
-        }
-        wordTopicTable.push_back(vec);
+    wordTopicTable = new int*[numWords];
+    for (int i = 0; i < numWords; i++) {
+        int *numWords_col = new int[numTopics]();
+        wordTopicTable[i] = numWords_col;
     }
-    for (int i = 0; i < num_topics_; i++) {
-        topicTable.push_back(0);
-    }
-    return w;
+    topicTable = new int[numTopics]();
 }
 
-
-void LdaWorker::InitTables() {
-    for (int i = 0; i < w.size(); i++) {
-        vector<int> fields;
-        for (int j = 0; j < w[i].size(); j++) {
-            fields.push_back(w[i][j]);
-        }
-        z.push_back(fields);
-    }
-    for (int d = 0; d < w.size(); d++) {
-        for (int i = 0; i < w[d].size(); i++) {
+void init_tables() {
+    z = new int*[numDocs];
+    for (int d = 0; d < numDocs; d++) {
+        int *z_col = new int[docLength[d]];
+        for (int i = 0; i < docLength[d]; i++) {
             int word = w[d][i];
-            int topic = rand() % num_topics_;
-            z[d][i] = topic;
+            int topic = rand() % numTopics;
+            z_col[i] = topic;
             docTopicTable[d][topic] += 1;
-            global_model_.IncWordTopicTable(word, topic, 1);
-            global_model_.IncTopicTable(topic, 1);
+            wordTopicTable[word][topic] += 1;
+            topicTable[topic] += 1;
         }
+        z[d] = z_col;
     }
 }
 
 
-double LdaWorker::LogDirichlet(vector<double> alpha) {
+double logDirichlet(double *alpha, int length) {
     double sumLogGamma = 0.0;
     double logSumGamma = 0.0;
-    for (double value : alpha) {
-        sumLogGamma += lgamma(value);
-        logSumGamma += value;
+    for (int i = 0; i < length; i++) {
+        sumLogGamma += lgamma(alpha[i]);
+        logSumGamma += alpha[i];
     }
     return sumLogGamma - lgamma(logSumGamma);
 }
 
-
-double LdaWorker::LogDirichlet(double alpha, int k) {
+double logDirichlet(double alpha, int k) {
     return k * lgamma(alpha) - lgamma(k * alpha);
 }
 
-
-vector<double> LdaWorker::GetRows(vector<vector<int>> matrix, int column_id) {
-    vector<double> rows;
-    for (int i = 0; i < num_words_; i++) {
-        rows.push_back((double) matrix[i][column_id]);
+double *wordTopicTableRows(int columnId) {
+    double *rows = new double[numWords];
+    for (int i = 0; i < numWords; i++) {
+        rows[i] = (double) wordTopicTable[i][columnId];
     }
     return rows;
 }
 
-
-vector<double> LdaWorker::GetColumns(vector<vector<int>> matrix, int row_id) {
-    vector<double> cols;
-    for (int i = 0; i < num_topics_; i++) {
-        cols.push_back((double) matrix[row_id][i]);
+double *docTopicTableCols(int rowId) {
+    double *cols = new double[numTopics];
+    for (int i = 0; i < numTopics; i++) {
+        cols[i] = (double) docTopicTable[rowId][i];
     }
     return cols;
 }
 
 
-double LdaWorker::GetLogLikelihood() {
+double getLogLikelihood() {
     double lik = 0.0;
-    for (int k = 0; k < num_topics_; k++) {
-        vector<double> temp = GetRows(wordTopicTable, k);
-        for (int w = 0; w < num_words_; w++) {
-            temp[w] += alpha_;
+    for (int k = 0; k < numTopics; k++) {
+        double *temp = wordTopicTableRows(k);
+        for (int w = 0; w < numWords; w++) {
+            temp[w] += alpha;
         }
-        lik += LogDirichlet(temp);
-        lik -= LogDirichlet(beta_, num_words_);
+        lik += logDirichlet(temp, numWords);
+        lik -= logDirichlet(beta, numWords);
+        delete[] temp;
     }
-    for (int d = 0; d < docTopicTable.size(); d++) {
-        vector<double> temp = GetColumns(docTopicTable, d);
-        for (int k = 0; k < num_topics_; k++) {
-            temp[k] += alpha_;
+    for (int d = 0; d < numDocs; d++) {
+        double *temp = docTopicTableCols(d);
+        for (int k = 0; k < numTopics; k++) {
+            temp[k] += alpha;
         }
-        lik += LogDirichlet(temp);
-        lik -= LogDirichlet(alpha_, num_topics_);
+        lik += logDirichlet(temp, numTopics);
+        lik -= logDirichlet(alpha, numTopics);
+        delete[] temp;
     }
     return lik;
 }
