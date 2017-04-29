@@ -9,6 +9,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 #include "lda_model.h"
 
@@ -17,7 +18,7 @@
 using namespace std;
 
 class LdaWorker {
-public:
+private:
     int world_size_;
     int world_rank_;
 
@@ -38,50 +39,38 @@ public:
     double *wall_secs_;
     double total_wall_secs_;
 
-    LdaWorker(int world_size, int world_rank,
-              const string &data_file, const string &output_dir,
-              int num_words, int num_topics,
-              double alpha, double beta,
-              int num_iters, int num_clocks_per_iter, int staleness);
+    int **word_topic_table_;
+    int *topic_table_delta_;
+    int *topic_table_;
+    int *doc_length_;
+    int *w;
+    int *z;
+
+    unordered_map<pair, int> word_topic_table_delta_;
 
 public:
     void Run();
 
-    void Setup();
-
-    void Load();
-
 private:
+    LdaWorker(int world_size, int world_rank, const string &data_file, const string &output_dir, int num_words,
+              int num_topics, double alpha, double beta, int num_iters, int num_clocks_per_iter, int staleness);
+    void Load(string dataFile);
     void InitTables();
 
     double logDirichlet(double *alpha, int length);
-
     double LogDirichlet(double alpha, int k);
-
-    double *wordTopicTableRows(int columnId);
-
-    double *docTopicTableCols(int rowId);
-
+    double *WordTopicTableRows(int columnId);
+    double *DocTopicTableCols(int rowId);
     double GetLogLikelihood();
+
+    void IncWordTopicTable(int word, int topic, int delta);
+    void IncTopicTable(int topic, int delta);
+    int GetWordTopicTable(int word, int topic);
+    int GetTopicTable(int topic);
+    void Sync();
 };
 
-inline LdaWorker::LdaWorker(int world_size, int world_rank,
-                            const string &data_file, const string &output_dir,
-                            int num_words, int num_docs, int num_topics,
-                            double alpha, double beta,
-                            int num_iters, int num_clocks_per_iter,
-                            int staleness) : world_size_(world_size),
-                                             world_rank_(world_rank),
-                                             data_file_(data_file),
-                                             output_dir_(output_dir),
-                                             num_words_(num_words),
-                                             num_docs_(num_docs),
-                                             num_topics_(num_topics),
-                                             alpha_(alpha), beta_(beta),
-                                             num_iters_(num_iters),
-                                             num_clocks_per_iter_(
-                                                     num_clocks_per_iter),
-                                             staleness_(staleness) {}
+
 
 inline void LdaWorker::Setup() {
     if (world_rank_ == MASTER) {

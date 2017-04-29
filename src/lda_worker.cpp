@@ -6,10 +6,16 @@
 
 using namespace std;
 
-void LdaWorker::Run() {
-    Load();
-    time_t t1, t2;
+LdaWorker(int world_size, int world_rank, const string &data_file, const string &output_dir, int num_words,
+          int num_docs, int num_topics, double alpha, double beta, int num_iters, int num_clocks_per_iter,
+          int staleness) : world_size_(world_size), world_rank_(world_rank), data_file_(data_file),
+                           output_dir_(output_dir), num_words_(num_words), num_docs_(num_docs), num_topics_(num_topics),
+                           alpha_(alpha), beta_(beta), num_iters_(num_iters), num_clocks_per_iter_(num_clocks_per_iter),
+                           staleness_(staleness) {}
 
+void Run() {
+
+    time_t t1, t2;
     for (int iter = 0; iter < num_iters_; iter++) {
         if (world_rank_ == MASTER) {
             time(&t1);
@@ -28,16 +34,16 @@ void LdaWorker::Run() {
                     int word = w[d][i];
                     int topic = z[d][i];
                     docTopicTable[d][topic] -= 1;
-                    global_model_.IncWordTopicTable(word, topic, -1);
-                    global_model_.IncTopicTable(topic, -1);
+                    IncWordTopicTable(word, topic, -1);
+                    IncTopicTable(topic, -1);
 
                     double *p = new double[num_topics_];
                     double norm = 0.0;
                     for (int k = 0; k < num_topics_; k++) {
                         double ak = docTopicTable[d][k] + alpha_;
-                        double bk = (global_model_.GetWordTopicTable(word, k) +
+                        double bk = (GetWordTopicTable(word, k) +
                                      beta_) /
-                                    ((double) global_model_.GetTopicTable(k) +
+                                    ((double) GetTopicTable(k) +
                                      num_words_ * beta_);
                         double pk = ak * bk;
                         p[k] = pk;
@@ -59,12 +65,12 @@ void LdaWorker::Run() {
                     z[d][i] = new_topic;
                     docTopicTable[d][new_topic] += 1;
                     // wordTopicTable[word][new_topic] += 1;
-                    global_model_.IncWordTopicTable(word, new_topic, 1);
+                    IncWordTopicTable(word, new_topic, 1);
                     // topicTable[new_topic] += 1;
-                    global_model_.IncTopicTable(new_topic, 1);
+                    IncTopicTable(new_topic, 1);
                 }
             }
-            global_model_.Sync();
+            Sync();
         }
 
         if (world_rank_ == MASTER) {
@@ -92,7 +98,9 @@ void LdaWorker::Run() {
 
 }
 
-void load(string dataFile) {
+
+// Master should load all the data to init global table
+void Load(string dataFile) {
     w = new int*[numDocs];
     docLength = new int[numDocs]();
     string line;
@@ -127,7 +135,11 @@ void load(string dataFile) {
     topicTable = new int[numTopics]();
 }
 
-void init_tables() {
+void LoadPartial(string dataFile) {
+    // TODO:
+}
+
+void InitTables() {
     z = new int*[numDocs];
     for (int d = 0; d < numDocs; d++) {
         int *z_col = new int[docLength[d]];
@@ -196,4 +208,22 @@ double getLogLikelihood() {
         delete[] temp;
     }
     return lik;
+}
+
+void IncWordTopicTable(int word, int topic, int delta) {
+    word_topic_table_[word][topic] += delta;
+    word_topic_table_delta_[make_pair(word, topic)] += delta;
+}
+
+void IncTopicTable(int topic, int delta) {
+    topic_table_[topic] += delta;
+    topic_table_delta_[topic] += delta;
+}
+
+int GetWordTopicTable(int word, int topic) {
+    return word_topic_table_[word][topic];
+}
+
+int GetTopicTable(int topic) {
+    return topic_table_[topic];
 }
