@@ -6,14 +6,14 @@
 
 using namespace std;
 
-LdaWorker(int world_size, int world_rank, const string &data_file, const string &output_dir, int num_words,
-          int num_docs, int num_topics, double alpha, double beta, int num_iters, int num_clocks_per_iter,
+LdaWorker::LdaWorker(int world_size, int world_rank, const string &data_file, const string &output_dir, int num_words,
+          int num_docs, int num_topics, double alpha_, double beta, int num_iters, int num_clocks_per_iter,
           int staleness) : world_size_(world_size), world_rank_(world_rank), data_file_(data_file),
                            output_dir_(output_dir), num_words_(num_words), num_docs_(num_docs), num_topics_(num_topics),
-                           alpha_(alpha), beta_(beta), num_iters_(num_iters), num_clocks_per_iter_(num_clocks_per_iter),
+                           alpha_(alpha_), beta_(beta), num_iters_(num_iters), num_clocks_per_iter_(num_clocks_per_iter),
                            staleness_(staleness) {}
 
-void Run() {
+void LdaWorker::Run() {
 
     time_t t1, t2;
     for (int iter = 0; iter < num_iters_; iter++) {
@@ -25,22 +25,22 @@ void Run() {
         }
 
         for (int batch = 0; batch < num_clocks_per_iter_; batch++) {
-            unsigned long begin = w.size() * batch / num_clocks_per_iter_;
-            unsigned long end = w.size() * (batch + 1) / num_clocks_per_iter_;
+            int begin = num_docs_ * batch / num_clocks_per_iter_;
+            int end = num_docs_ * (batch + 1) / num_clocks_per_iter_;
 
             // Loop through each document in the current batch.
-            for (unsigned long d = begin; d < end; d++) {
-                for (int i = 0; i < w[d].size(); i++) {
+            for (int d = begin; d < end; d++) {
+                for (int i = 0; i < doc_length_[d]; i++) {
                     int word = w[d][i];
                     int topic = z[d][i];
-                    docTopicTable[d][topic] -= 1;
+                    doc_topic_table_[d][topic] -= 1;
                     IncWordTopicTable(word, topic, -1);
                     IncTopicTable(topic, -1);
 
                     double *p = new double[num_topics_];
                     double norm = 0.0;
                     for (int k = 0; k < num_topics_; k++) {
-                        double ak = docTopicTable[d][k] + alpha_;
+                        double ak = doc_topic_table_[d][k] + alpha_;
                         double bk = (GetWordTopicTable(word, k) +
                                      beta_) /
                                     ((double) GetTopicTable(k) +
@@ -63,7 +63,7 @@ void Run() {
                     delete[] p;
 
                     z[d][i] = new_topic;
-                    docTopicTable[d][new_topic] += 1;
+                    doc_topic_table_[d][new_topic] += 1;
                     // wordTopicTable[word][new_topic] += 1;
                     IncWordTopicTable(word, new_topic, 1);
                     // topicTable[new_topic] += 1;
@@ -100,17 +100,17 @@ void Run() {
 
 
 // Master should load all the data to init global table
-void Load(string dataFile) {
-    w = new int*[numDocs];
-    docLength = new int[numDocs]();
+void LdaWorker::LoadAll(string dataFile) {
+    w = new int*[num_docs_];
+    doc_length_ = new int[num_docs_]();
     string line;
     ifstream file (dataFile);
     if (file.is_open()) {
         int doc = 0;
         while (getline(file, line)) {
             for (unsigned long i = 0; i < line.length(); i++)
-                if (line[i] == ',') docLength[doc] += 1;
-            int *w_col = new int[docLength[doc]];
+                if (line[i] == ',') doc_length_[doc] += 1;
+            int *w_col = new int[doc_length_[doc]];
             int index = 0;
             unsigned long last_i = 0;
             for (unsigned long i = 0; i < line.length(); i++) {
@@ -122,108 +122,122 @@ void Load(string dataFile) {
             w[doc] = w_col;
         }
     }
-    docTopicTable = new int*[numDocs];
-    for (int i = 0; i < numDocs; i++) {
-        int *docLength_col = new int[numTopics]();
-        docTopicTable[i] = docLength_col;
+    doc_topic_table_ = new int*[num_docs_];
+    for (int i = 0; i < num_docs_; i++) {
+        int *doc_length__col = new int[num_topics_]();
+        doc_topic_table_[i] = doc_length__col;
     }
-    wordTopicTable = new int*[numWords];
-    for (int i = 0; i < numWords; i++) {
-        int *numWords_col = new int[numTopics]();
-        wordTopicTable[i] = numWords_col;
+    word_topic_table_ = new int*[num_words_];
+    for (int i = 0; i < num_words_; i++) {
+        int *num_words__col = new int[num_topics_]();
+        word_topic_table_[i] = num_words__col;
     }
-    topicTable = new int[numTopics]();
+    topic_table_ = new int[num_topics_]();
 }
 
-void LoadPartial(string dataFile) {
+void LdaWorker::LoadPartial(string dataFile) {
     // TODO:
 }
 
-void InitTables() {
-    z = new int*[numDocs];
-    for (int d = 0; d < numDocs; d++) {
-        int *z_col = new int[docLength[d]];
-        for (int i = 0; i < docLength[d]; i++) {
+void LdaWorker::InitTables() {
+    z = new int*[num_docs_];
+    for (int d = 0; d < num_docs_; d++) {
+        int *z_col = new int[doc_length_[d]];
+        for (int i = 0; i < doc_length_[d]; i++) {
             int word = w[d][i];
-            int topic = rand() % numTopics;
+            int topic = rand() % num_topics_;
             z_col[i] = topic;
-            docTopicTable[d][topic] += 1;
-            wordTopicTable[word][topic] += 1;
-            topicTable[topic] += 1;
+            doc_topic_table_[d][topic] += 1;
+            word_topic_table_[word][topic] += 1;
+            topic_table_[topic] += 1;
         }
         z[d] = z_col;
     }
 }
 
+void LdaWorker::Setup() {
+    if (world_rank_ == MASTER) {
+        LoadAll(data_file_);
+        log_likelihoods_ = new double[num_iters_];
+        wall_secs_ = new double[num_iters_];
+        total_wall_secs_ = 0;
+        InitTables();
+        // TODO: send word_topic_table_, topic_table_ and z to all workers
+    } else {
+        LoadPartial(data_file_);
+        // TODO: receive word_topic_table_, topic_table_ and partial z from the master
+    }
+}
 
-double logDirichlet(double *alpha, int length) {
+
+double LdaWorker::LogDirichlet(double *alpha_, int length) {
     double sumLogGamma = 0.0;
     double logSumGamma = 0.0;
     for (int i = 0; i < length; i++) {
-        sumLogGamma += lgamma(alpha[i]);
-        logSumGamma += alpha[i];
+        sumLogGamma += lgamma(alpha_[i]);
+        logSumGamma += alpha_[i];
     }
     return sumLogGamma - lgamma(logSumGamma);
 }
 
-double logDirichlet(double alpha, int k) {
-    return k * lgamma(alpha) - lgamma(k * alpha);
+double LdaWorker::LogDirichlet(double alpha_, int k) {
+    return k * lgamma(alpha_) - lgamma(k * alpha_);
 }
 
-double *wordTopicTableRows(int columnId) {
-    double *rows = new double[numWords];
-    for (int i = 0; i < numWords; i++) {
-        rows[i] = (double) wordTopicTable[i][columnId];
+double *LdaWorker::WordTopicTableRows(int columnId) {
+    double *rows = new double[num_words_];
+    for (int i = 0; i < num_words_; i++) {
+        rows[i] = (double) word_topic_table_[i][columnId];
     }
     return rows;
 }
 
-double *docTopicTableCols(int rowId) {
-    double *cols = new double[numTopics];
-    for (int i = 0; i < numTopics; i++) {
-        cols[i] = (double) docTopicTable[rowId][i];
+double *LdaWorker::DocTopicTableCols(int rowId) {
+    double *cols = new double[num_topics_];
+    for (int i = 0; i < num_topics_; i++) {
+        cols[i] = (double) doc_topic_table_[rowId][i];
     }
     return cols;
 }
 
 
-double getLogLikelihood() {
+double LdaWorker::GetLogLikelihood() {
     double lik = 0.0;
-    for (int k = 0; k < numTopics; k++) {
-        double *temp = wordTopicTableRows(k);
-        for (int w = 0; w < numWords; w++) {
-            temp[w] += alpha;
+    for (int k = 0; k < num_topics_; k++) {
+        double *temp = WordTopicTableRows(k);
+        for (int w = 0; w < num_words_; w++) {
+            temp[w] += alpha_;
         }
-        lik += logDirichlet(temp, numWords);
-        lik -= logDirichlet(beta, numWords);
+        lik += LogDirichlet(temp, num_words_);
+        lik -= LogDirichlet(beta_, num_words_);
         delete[] temp;
     }
-    for (int d = 0; d < numDocs; d++) {
-        double *temp = docTopicTableCols(d);
-        for (int k = 0; k < numTopics; k++) {
-            temp[k] += alpha;
+    for (int d = 0; d < num_docs_; d++) {
+        double *temp = DocTopicTableCols(d);
+        for (int k = 0; k < num_topics_; k++) {
+            temp[k] += alpha_;
         }
-        lik += logDirichlet(temp, numTopics);
-        lik -= logDirichlet(alpha, numTopics);
+        lik += LogDirichlet(temp, num_topics_);
+        lik -= LogDirichlet(alpha_, num_topics_);
         delete[] temp;
     }
     return lik;
 }
 
-void IncWordTopicTable(int word, int topic, int delta) {
+void LdaWorker::IncWordTopicTable(int word, int topic, int delta) {
     word_topic_table_[word][topic] += delta;
     word_topic_table_delta_[make_pair(word, topic)] += delta;
 }
 
-void IncTopicTable(int topic, int delta) {
+void LdaWorker::IncTopicTable(int topic, int delta) {
     topic_table_[topic] += delta;
     topic_table_delta_[topic] += delta;
 }
 
-int GetWordTopicTable(int word, int topic) {
+int LdaWorker::GetWordTopicTable(int word, int topic) {
     return word_topic_table_[word][topic];
 }
 
-int GetTopicTable(int topic) {
+int LdaWorker::GetTopicTable(int topic) {
     return topic_table_[topic];
 }
