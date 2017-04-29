@@ -37,21 +37,22 @@ private:
 
     int **word_topic_table_;
     int **doc_topic_table_;
-    int *topic_table_delta_;
     int *topic_table_;
     int *doc_length_;
     int **w;
     int **z;
 
+    int *topic_table_delta_;
     unordered_map<pair, int> word_topic_table_delta_;
 
 public:
     void Setup();
     void Run();
 
-private:
     LdaWorker(int world_size, int world_rank, const string &data_file, const string &output_dir, int num_words, int num_docs,
               int num_topics, double alpha, double beta, int num_iters, int num_clocks_per_iter, int staleness);
+
+private:
     void LoadAll(string dataFile);
     void LoadPartial(string dataFile);
     void InitTables();
