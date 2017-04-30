@@ -6,12 +6,19 @@
 
 using namespace std;
 
-LdaWorker::LdaWorker(int world_size, int world_rank, const string &data_file, const string &output_dir, int num_words,
-          int num_docs, int num_topics, double alpha_, double beta, int num_iters, int num_clocks_per_iter,
-          int staleness) : world_size_(world_size), world_rank_(world_rank), data_file_(data_file),
-                           output_dir_(output_dir), num_words_(num_words), num_docs_(num_docs), num_topics_(num_topics),
-                           alpha_(alpha_), beta_(beta), num_iters_(num_iters), num_clocks_per_iter_(num_clocks_per_iter),
-                           staleness_(staleness) {}
+LdaWorker::LdaWorker(int world_size, int world_rank,
+                     const string &data_file, const string &output_dir,
+                     int num_words, int num_docs, int num_topics,
+                     double alpha, double beta,
+                     int num_iters, int num_clocks_per_iter, int staleness)
+        : world_size_(world_size), world_rank_(world_rank),
+          data_file_(data_file), output_dir_(output_dir),
+          num_words_(num_words), num_docs_(num_docs), num_topics_(num_topics),
+          alpha_(alpha), beta_(beta),
+          num_iters_(num_iters), num_clocks_per_iter_(num_clocks_per_iter), staleness_(staleness),
+          global_table_(world_size, world_rank, num_words, num_topics) {
+
+}
 
 void LdaWorker::Run() {
 
@@ -19,9 +26,6 @@ void LdaWorker::Run() {
     for (int iter = 0; iter < num_iters_; iter++) {
         if (world_rank_ == MASTER) {
             time(&t1);
-            // TODO: send the global update to all workers
-        } else {
-            // TODO: receive the global update and apply it to local parameter tables
         }
 
         for (int batch = 0; batch < num_clocks_per_iter_; batch++) {
@@ -34,43 +38,31 @@ void LdaWorker::Run() {
                     int word = w[d][i];
                     int topic = z[d][i];
                     doc_topic_table_[d][topic] -= 1;
-                    IncWordTopicTable(word, topic, -1);
-                    IncTopicTable(topic, -1);
+                    global_table_.IncWordTopicTable(word, topic, -1);
+                    global_table_.IncTopicTable(topic, -1);
 
                     double *p = new double[num_topics_];
                     double norm = 0.0;
                     for (int k = 0; k < num_topics_; k++) {
+                        double bk = (global_table_.GetWordTopicTable(word, k) + beta_) /
+                                    ((double) global_table_.GetTopicTable(k) + num_words_ * beta_);
                         double ak = doc_topic_table_[d][k] + alpha_;
-                        double bk = (GetWordTopicTable(word, k) +
-                                     beta_) /
-                                    ((double) GetTopicTable(k) +
-                                     num_words_ * beta_);
-                        double pk = ak * bk;
+                        double pk = bk * ak;
                         p[k] = pk;
                         norm += pk;
                     }
 
-                    int new_topic = 0;
-                    double sum_p_up_to_k = 0.0;
-                    double r = ((double) rand() / (RAND_MAX));
-                    for (int k = 0; k < num_topics_; k++) {
-                        sum_p_up_to_k += p[k] / norm;
-                        if (r < sum_p_up_to_k) {
-                            new_topic = k;
-                            break;
-                        }
-                    }
+                    int new_topic = SampleMultinomial(p, norm);
                     delete[] p;
 
                     z[d][i] = new_topic;
                     doc_topic_table_[d][new_topic] += 1;
-                    // wordTopicTable[word][new_topic] += 1;
-                    IncWordTopicTable(word, new_topic, 1);
-                    // topicTable[new_topic] += 1;
-                    IncTopicTable(new_topic, 1);
+                    global_table_.IncWordTopicTable(word, new_topic, 1);
+                    global_table_.IncTopicTable(new_topic, 1);
                 }
             }
-            Sync();
+
+            global_table_.Sync();
         }
 
         if (world_rank_ == MASTER) {
@@ -99,6 +91,20 @@ void LdaWorker::Run() {
 }
 
 
+int LdaWorker::SampleMultinomial(double *p, double norm) {
+    double sum_p_up_to_k = 0.0;
+    double r = ((double) rand() / (RAND_MAX));
+    int topic = 0;
+    for (int k = 0; k < num_topics_; k++) {
+        sum_p_up_to_k += p[k] / norm;
+        if (r <= sum_p_up_to_k) {
+            topic = k;
+            break;
+        }
+    }
+    return topic;
+}
+
 // Master should load all the data to init global table
 void LdaWorker::LoadAll(string dataFile) {
     w = new int*[num_docs_];
@@ -124,18 +130,12 @@ void LdaWorker::LoadAll(string dataFile) {
     }
     doc_topic_table_ = new int*[num_docs_];
     for (int i = 0; i < num_docs_; i++) {
-        int *doc_length__col = new int[num_topics_]();
-        doc_topic_table_[i] = doc_length__col;
+        int *doc_length_col = new int[num_topics_]();
+        doc_topic_table_[i] = doc_length_col;
     }
-    word_topic_table_ = new int*[num_words_];
-    for (int i = 0; i < num_words_; i++) {
-        int *num_words__col = new int[num_topics_]();
-        word_topic_table_[i] = num_words__col;
-    }
-    topic_table_ = new int[num_topics_]();
 }
 
-void LdaWorker::LoadPartial(string dataFile) {
+void LdaWorker::LoadPartial(string data_file) {
     // TODO:
 }
 
@@ -148,8 +148,8 @@ void LdaWorker::InitTables() {
             int topic = rand() % num_topics_;
             z_col[i] = topic;
             doc_topic_table_[d][topic] += 1;
-            word_topic_table_[word][topic] += 1;
-            topic_table_[topic] += 1;
+            global_table_.IncWordTopicTable(word, topic, 1);
+            global_table_.IncTopicTable(topic, 1);
         }
         z[d] = z_col;
     }
@@ -162,11 +162,10 @@ void LdaWorker::Setup() {
         wall_secs_ = new double[num_iters_];
         total_wall_secs_ = 0;
         InitTables();
-        // TODO: send word_topic_table_, topic_table_ and z to all workers
     } else {
         LoadPartial(data_file_);
-        // TODO: receive word_topic_table_, topic_table_ and partial z from the master
     }
+    global_table_.Init();
 }
 
 
@@ -184,14 +183,6 @@ double LdaWorker::LogDirichlet(double alpha_, int k) {
     return k * lgamma(alpha_) - lgamma(k * alpha_);
 }
 
-double *LdaWorker::WordTopicTableRows(int columnId) {
-    double *rows = new double[num_words_];
-    for (int i = 0; i < num_words_; i++) {
-        rows[i] = (double) word_topic_table_[i][columnId];
-    }
-    return rows;
-}
-
 double *LdaWorker::DocTopicTableCols(int rowId) {
     double *cols = new double[num_topics_];
     for (int i = 0; i < num_topics_; i++) {
@@ -200,11 +191,10 @@ double *LdaWorker::DocTopicTableCols(int rowId) {
     return cols;
 }
 
-
 double LdaWorker::GetLogLikelihood() {
     double lik = 0.0;
     for (int k = 0; k < num_topics_; k++) {
-        double *temp = WordTopicTableRows(k);
+        double *temp = global_table_.GetWordTopicTableRows(k);
         for (int w = 0; w < num_words_; w++) {
             temp[w] += alpha_;
         }
@@ -222,22 +212,4 @@ double LdaWorker::GetLogLikelihood() {
         delete[] temp;
     }
     return lik;
-}
-
-void LdaWorker::IncWordTopicTable(int word, int topic, int delta) {
-    word_topic_table_[word][topic] += delta;
-    word_topic_table_delta_[make_pair(word, topic)] += delta;
-}
-
-void LdaWorker::IncTopicTable(int topic, int delta) {
-    topic_table_[topic] += delta;
-    topic_table_delta_[topic] += delta;
-}
-
-int LdaWorker::GetWordTopicTable(int word, int topic) {
-    return word_topic_table_[word][topic];
-}
-
-int LdaWorker::GetTopicTable(int topic) {
-    return topic_table_[topic];
 }

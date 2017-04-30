@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include "lda_model.h"
 
 #define MASTER 0
 
@@ -35,39 +36,34 @@ private:
     double *wall_secs_;
     double total_wall_secs_;
 
-    int **word_topic_table_;
     int **doc_topic_table_;
-    int *topic_table_;
     int *doc_length_;
     int **w;
     int **z;
 
-    int *topic_table_delta_;
-    unordered_map<pair, int> word_topic_table_delta_;
+    GlobalTable global_table_;
 
 public:
     void Setup();
     void Run();
 
-    LdaWorker(int world_size, int world_rank, const string &data_file, const string &output_dir, int num_words, int num_docs,
-              int num_topics, double alpha, double beta, int num_iters, int num_clocks_per_iter, int staleness);
+    LdaWorker(int world_size, int world_rank,
+              const string &data_file, const string &output_dir,
+              int num_words, int num_docs, int num_topics,
+              double alpha, double beta, int num_iters,
+              int num_clocks_per_iter, int staleness);
 
 private:
     void LoadAll(string dataFile);
-    void LoadPartial(string dataFile);
+    void LoadPartial(string data_file);
     void InitTables();
 
     double LogDirichlet(double *alpha, int length);
     double LogDirichlet(double alpha, int k);
-    double *WordTopicTableRows(int columnId);
     double *DocTopicTableCols(int rowId);
     double GetLogLikelihood();
+    int SampleMultinomial(double *p, double norm);
 
-    void IncWordTopicTable(int word, int topic, int delta);
-    void IncTopicTable(int topic, int delta);
-    int GetWordTopicTable(int word, int topic);
-    int GetTopicTable(int topic);
-    void Sync();
 };
 
 
