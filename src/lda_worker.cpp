@@ -108,12 +108,13 @@ int LdaWorker::SampleMultinomial(double *p, double norm) {
 // Master should load all the data to init global table
 void LdaWorker::LoadAll(string dataFile) {
     w = new int*[num_docs_];
-    doc_length_ = new int[num_docs_]();
+    doc_length_ = new int[num_docs_];
     string line;
     ifstream file (dataFile);
     if (file.is_open()) {
         int doc = 0;
         while (getline(file, line)) {
+            doc_length_[doc] = 1;
             for (unsigned long i = 0; i < line.length(); i++)
                 if (line[i] == ',') doc_length_[doc] += 1;
             int *w_col = new int[doc_length_[doc]];
@@ -140,7 +141,7 @@ void LdaWorker::LoadAll(string dataFile) {
 
 void LdaWorker::LoadPartial(string dataFile) {
     w = new int*[num_docs_];
-    doc_length_ = new int[num_docs_]();
+    doc_length_ = new int[num_docs_];
     string line;
     ifstream file (dataFile);
     if (file.is_open()) {
@@ -148,6 +149,7 @@ void LdaWorker::LoadPartial(string dataFile) {
         int doc = 0;
         while (getline(file, line)) {
             if (line_num % world_rank_ == 0) {
+                doc_length_[doc] = 1;
                 for (unsigned long i = 0; i < line.length(); i++)
                     if (line[i] == ',') doc_length_[doc] += 1;
                 int *w_col = new int[doc_length_[doc]];
