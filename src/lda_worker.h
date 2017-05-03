@@ -55,7 +55,7 @@ public:
 
 private:
     void LoadAll(string dataFile);
-    void LoadPartial(string data_file);
+    void LoadPartial(string dataFile);
     void InitTables();
 
     double LogDirichlet(double *alpha, int length);
