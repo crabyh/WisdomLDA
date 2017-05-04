@@ -89,7 +89,6 @@ void LdaWorker::Run() {
 
 }
 
-
 int LdaWorker::SampleMultinomial(double *p, double norm) {
     double sum_p_up_to_k = 0.0;
     double r = ((double) rand() / (RAND_MAX));
@@ -189,14 +188,15 @@ void LdaWorker::InitTables() {
         }
         z[d] = z_col;
     }
+    global_table_.Sync();
 }
 
 void LdaWorker::Setup() {
     if (world_rank_ == MASTER) {
-        LoadAll(data_file_);
         log_likelihoods_ = new double[num_iters_];
         wall_secs_ = new double[num_iters_];
         total_wall_secs_ = 0;
+        LoadPartial(data_file_);
         InitTables();
     } else {
         LoadPartial(data_file_);
