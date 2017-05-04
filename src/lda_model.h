@@ -8,6 +8,7 @@
 #include <mpi.h>
 #include <vector>
 #include <unordered_map>
+#include "lda_worker.h"
 
 using namespace std;
 
@@ -51,7 +52,11 @@ inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, i
 
 inline void GlobalTable::IncWordTopicTable(int word, int topic, int delta) {
     word_topic_table_[word][topic] += delta;
-    word_topic_table_delta_[make_pair(word, topic)] += delta;
+    pair word_topic_pair = make_pair(word, topic);
+    if (word_topic_table_delta_.count(word_topic_pair))
+        word_topic_table_delta_[word_topic_pair] += delta;
+    else
+        word_topic_table_delta_[word_topic_pair] = delta;
 }
 
 inline void GlobalTable::IncTopicTable(int topic, int delta) {
