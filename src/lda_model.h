@@ -18,6 +18,7 @@ private:
     int *topic_table_;
     unordered_map<pair, int> word_topic_table_delta_;
     int *topic_table_delta_;
+    int epoch;
 
 public:
     int world_size_;
@@ -39,14 +40,13 @@ public:
 
 inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, int num_topics) :
         world_size_(world_size), world_rank_(world_rank), num_words_(num_words), num_topics_(num_topics) {
+    epoch = 0;
     word_topic_table_ = new int*[num_words_];
     for (int i = 0; i < num_words_; i++) {
         word_topic_table_[i] = new int[num_topics_];
     }
     topic_table_ = new int[num_topics_];
-    if (world_rank != MASTER) {
-        topic_table_delta_ = new int[num_topics];
-    }
+    topic_table_delta_ = new int[num_topics];
 }
 
 

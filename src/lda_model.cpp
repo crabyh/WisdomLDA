@@ -5,6 +5,7 @@
 #include "lda_model.h"
 #define MASTER 0
 
+
 void GlobalTable::Init() {
     if (world_rank_ == MASTER) {
         // TODO: send word_topic_table_, topic_table_ to all workers
@@ -14,9 +15,14 @@ void GlobalTable::Init() {
 }
 
 void GlobalTable::Sync() {
-    if (world_rank_ == MASTER) {
-        // TODO: send the global update to all workers
-    } else {
-        // TODO: receive the global update and apply it to local parameter tables
+    for (int i = 0; i < world_size_; i++) {
+        MPI_Status status;
+        if (world_rank_ == MASTER) {
+            MPI_Recv(topic_table_delta_, num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD, &status);
+        } else {
+            MPI_Request send_req;
+            MPI_ISend(topic_table_delta_, num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD, &send_req);
+        }
+        MPI_Wait(&send_req);
     }
 }
