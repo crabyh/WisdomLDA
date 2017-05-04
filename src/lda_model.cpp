@@ -21,8 +21,8 @@ void GlobalTable::Sync() {
             MPI_Recv(topic_table_delta_, num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD, &status);
         } else {
             MPI_Request send_req;
-            MPI_ISend(topic_table_delta_, num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD, &send_req);
+            MPI_Isend(topic_table_delta_, num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD, &send_req);
+            MPI_Wait(&send_req, &status);
         }
-        MPI_Wait(&send_req);
     }
 }
