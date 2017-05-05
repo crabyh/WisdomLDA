@@ -6,23 +6,97 @@
 #define MASTER 0
 
 
-void GlobalTable::Init() {
-    if (world_rank_ == MASTER) {
-        // TODO: send word_topic_table_, topic_table_ to all workers
-    } else {
-        // TODO: receive word_topic_table_, topic_table_ from the master
-    }
+void GlobalTable::Sync() {
+    SyncTopicTable();
+    SyncWordTopicTable();
 }
 
-void GlobalTable::Sync() {
-    for (int i = 0; i < world_size_; i++) {
-        MPI_Status status;
-        if (world_rank_ == MASTER) {
-            MPI_Recv(topic_table_delta_, num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD, &status);
-        } else {
-            MPI_Request send_req;
-            MPI_Isend(topic_table_delta_, num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD, &send_req);
-            MPI_Wait(&send_req, &status);
+
+void GlobalTable::SyncTopicTable() {
+    int *global_topic_table_delta = new int[num_topics_]();
+
+    if (world_rank_ == MASTER) {
+
+        MPI_Status probe_status;
+        int *partial_topic_table_delta = new int[num_topics_]();
+        for (int i = 0; i < world_size_; i++) {
+            MPI_Recv(partial_topic_table_delta, num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD, &probe_status);
+            for (int k = 0; k < num_topics_; k++) {
+                global_topic_table_delta[k] += partial_topic_table_delta[k];
+            }
         }
+        delete[] partial_topic_table_delta;
+
+        MPI_Request* send_reqs = new MPI_Request[world_size_];
+        for (int i = 1; i < world_size_; i++) {
+            MPI_Isend(global_topic_table_delta, num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD, &send_reqs[i]);
+        }
+        for (int i = 1; i < world_size_; i++) {
+            MPI_Status status;
+            MPI_Wait(&send_reqs[i], &status);
+        }
+        delete(send_reqs);
+
+    } else {
+
+        MPI_Request send_req;
+        MPI_Isend(topic_table_delta_, num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD, &send_req);
+        MPI_Recv(global_topic_table_delta, num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        for (int k = 0; k < num_topics_; k++) {
+            topic_table_[k] = topic_table_[k] - global_topic_table_delta[k] + topic_table_delta_[k];
+            topic_table_delta_[k] = 0;
+        }
+
     }
+
+    delete[] global_topic_table_delta;
 }
+
+void GlobalTable::SyncWordTopicTable() {
+    int *global_word_topic_table_delta = new int[num_words_ * num_topics_]();
+
+    if (world_rank_ == MASTER) {
+
+        MPI_Status probe_status;
+        int *partial_word_topic_table_delta = new int[num_words_ * num_topics_]();
+        for (int i = 0; i < world_size_; i++) {
+            MPI_Recv(partial_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD,
+                    &probe_status);
+            for (int w = 0; w < num_words_; w++) {
+                for (int k = 0; k < num_topics_; k++) {
+                    (global_word_topic_table_delta + w)[k] += (partial_word_topic_table_delta + w)[k];
+                }
+            }
+        }
+
+        MPI_Request* send_reqs = new MPI_Request[world_size_];
+        for (int i = 1; i < world_size_; i++) {
+            MPI_Isend(global_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD,
+                    &send_reqs[i]);
+        }
+        for (int i = 1; i < world_size_; i++) {
+            MPI_Status status;
+            MPI_Wait(&send_reqs[i], &status);
+        }
+        delete(send_reqs);
+
+    } else {
+
+        MPI_Request send_req;
+        MPI_Isend(word_topic_table_delta_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD, &send_req);
+        MPI_Recv(global_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
+                 MPI_STATUS_IGNORE);
+        for (int w = 0; w < num_words_; w++) {
+            for (int k = 0; k < num_topics_; k++) {
+                (word_topic_table_ + w)[k] = (word_topic_table_ + w)[k] - (global_word_topic_table_delta + w)[k] +
+                        (topic_table_delta_ + w)[k];
+                (topic_table_delta_ + w)[k] = 0;
+            }
+        }
+
+    }
+
+    delete[] global_word_topic_table_delta;
+}
+
+

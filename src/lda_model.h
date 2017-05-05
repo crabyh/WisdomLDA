@@ -8,7 +8,6 @@
 #include <mpi.h>
 #include <vector>
 #include <unordered_map>
-#include "lda_worker.h"
 
 using namespace std;
 
@@ -16,7 +15,7 @@ class GlobalTable {
 private:
     int **word_topic_table_;
     int *topic_table_;
-    unordered_map<pair, int> word_topic_table_delta_;
+    int **word_topic_table_delta_;
     int *topic_table_delta_;
     int epoch;
 
@@ -29,34 +28,37 @@ public:
 public:
     GlobalTable(int world_size, int world_rank, int num_words, int num_topics);
 
-    void Init();
     void IncWordTopicTable(int word, int topic, int delta);
     void IncTopicTable(int topic, int delta);
     int GetWordTopicTable(int word, int topic);
     double *GetWordTopicTableRows(int column_id);
     int GetTopicTable(int topic);
     void Sync();
+    void SyncTopicTable();
+    void SyncWordTopicTable();
 };
 
 inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, int num_topics) :
         world_size_(world_size), world_rank_(world_rank), num_words_(num_words), num_topics_(num_topics) {
     epoch = 0;
     word_topic_table_ = new int*[num_words_];
-    for (int i = 0; i < num_words_; i++) {
-        word_topic_table_[i] = new int[num_topics_];
+    int *word_topic_pools = new int[num_words_ * num_topics_]();
+    for (int i = 0; i < num_words_; i++, word_topic_pools += num_topics) {
+        word_topic_table_[i] = word_topic_pools;
     }
-    topic_table_ = new int[num_topics_];
-    topic_table_delta_ = new int[num_topics];
-}
+    word_topic_table_delta_ = new int*[num_words_];
+    int *word_topic_pools_delta = new int[num_words_ * num_topics_]();
+    for (int i = 0; i < num_words_; i++, word_topic_pools_delta += num_topics) {
+        word_topic_table_delta_[i] = word_topic_pools_delta;
+    }
 
+    topic_table_ = new int[num_topics_]();
+    topic_table_delta_ = new int[num_topics]();
+}
 
 inline void GlobalTable::IncWordTopicTable(int word, int topic, int delta) {
     word_topic_table_[word][topic] += delta;
-    pair word_topic_pair = make_pair(word, topic);
-    if (word_topic_table_delta_.count(word_topic_pair))
-        word_topic_table_delta_[word_topic_pair] += delta;
-    else
-        word_topic_table_delta_[word_topic_pair] = delta;
+    word_topic_table_delta_[word][topic] += delta;
 }
 
 inline void GlobalTable::IncTopicTable(int topic, int delta) {
@@ -79,6 +81,5 @@ inline double *GlobalTable::GetWordTopicTableRows(int column_id) {
 inline int GlobalTable::GetTopicTable(int topic) {
     return topic_table_[topic];
 }
-
 
 #endif //WISDOMLDA_LDA_MODEL_H

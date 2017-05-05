@@ -8,13 +8,10 @@
 #include "lda_worker.h"
 
 #define MASTER 0
-#define SILENT "silent"
-#define NUM_RUNS 5
 
 void print_usage() {
-    std::cerr << "Usage: ./lda <data_file> <output_dir> <num_words> "
-            "<num_topics> <alpha> <beta> <num_iters> <num_clocks_per_iter> "
-            "<staleness>\n";
+    std::cerr << "Usage: ./lda <data_file> <output_dir> <num_words> <num_docs> <num_topics> <alpha> <beta> "
+            "<num_iters> <num_clocks_per_iter> <staleness>\n";
 }
 
 int main(int argc, char **argv) {
@@ -31,7 +28,7 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
     // Check arguments
-    if (argc != 10) {
+    if (argc != 11) {
         if (world_rank == MASTER) {
             print_usage();
         }
@@ -58,12 +55,12 @@ int main(int argc, char **argv) {
 
     if (world_rank == MASTER) {
         std::cout << "Number of processes = " << world_size << std::endl;
-        std::cout << "Starting loading document collection" << std::endl;
+//        std::cout << "Starting loading document collection" << std::endl;
     }
     std::cout << world_rank << ": Hello world!" << std::endl;
 
-    if (world_rank == MASTER)
-        std::cout << "Done!\n";
+//    if (world_rank == MASTER)
+//        std::cout << "Done!\n";
 
     lda_worker.Setup();
 

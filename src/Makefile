@@ -1,4 +1,4 @@
-main: lda_worker.cpp main.cpp
+main: lda_worker.cpp lda_model.cpp main.cpp
     mpic++ -O3 -std=c++11 -fopenmp -Wall -g -I../include/ -o lda lda_worker.cpp main.cpp
 
 clean:

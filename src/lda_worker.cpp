@@ -23,6 +23,8 @@ LdaWorker::LdaWorker(int world_size, int world_rank,
 void LdaWorker::Run() {
 
     time_t t1, t2;
+    double *p = new double[num_topics_];
+
     for (int iter = 0; iter < num_iters_; iter++) {
         if (world_rank_ == MASTER) {
             time(&t1);
@@ -41,7 +43,6 @@ void LdaWorker::Run() {
                     global_table_.IncWordTopicTable(word, topic, -1);
                     global_table_.IncTopicTable(topic, -1);
 
-                    double *p = new double[num_topics_];
                     double norm = 0.0;
                     for (int k = 0; k < num_topics_; k++) {
                         double bk = (global_table_.GetWordTopicTable(word, k) + beta_) /
@@ -53,7 +54,6 @@ void LdaWorker::Run() {
                     }
 
                     int new_topic = SampleMultinomial(p, norm);
-                    delete[] p;
 
                     z[d][i] = new_topic;
                     doc_topic_table_[d][new_topic] += 1;
@@ -65,17 +65,17 @@ void LdaWorker::Run() {
         }
 
         if (world_rank_ == MASTER) {
-            // TODO: collect all updates from workers
             time(&t2);
             wall_secs_[iter] = difftime(t2, t1);
             total_wall_secs_ += wall_secs_[iter];
             log_likelihoods_[iter] = GetLogLikelihood();
             cout << "Iteration time: " << wall_secs_[iter] << endl;
             cout << "Log-likelihood: " << log_likelihoods_[iter] << endl;
-        } else {
-            // TODO: send update to master
         }
     }
+
+    delete[] p;
+
 
     if (world_rank_ == MASTER) {
         ofstream file(output_dir_ + "/likelihood.csv");
@@ -138,10 +138,10 @@ int LdaWorker::SampleMultinomial(double *p, double norm) {
 //}
 
 void LdaWorker::LoadPartial(string dataFile) {
-    w = new int*[num_docs_];
+    w = new int *[num_docs_];
     doc_length_ = new int[num_docs_];
     string line;
-    ifstream file (dataFile);
+    ifstream file(dataFile);
     if (file.is_open()) {
         int line_num = 0;
         int doc = 0;
@@ -149,7 +149,9 @@ void LdaWorker::LoadPartial(string dataFile) {
             if (line_num % world_rank_ == 0) {
                 doc_length_[doc] = 1;
                 for (unsigned long i = 0; i < line.length(); i++)
-                    if (line[i] == ',') doc_length_[doc] += 1;
+                    if (line[i] == ',') {
+                        doc_length_[doc] += 1;
+                    }
                 int *w_col = new int[doc_length_[doc]];
                 int index = 0;
                 unsigned long last_i = 0;
@@ -167,7 +169,7 @@ void LdaWorker::LoadPartial(string dataFile) {
             line_num += 1;
         }
     }
-    doc_topic_table_ = new int*[num_docs_];
+    doc_topic_table_ = new int *[num_docs_];
     for (int i = 0; i < num_docs_; i++) {
         int *doc_length_col = new int[num_topics_]();
         doc_topic_table_[i] = doc_length_col;
@@ -175,7 +177,8 @@ void LdaWorker::LoadPartial(string dataFile) {
 }
 
 void LdaWorker::InitTables() {
-    z = new int*[num_docs_];
+    std::cout << world_rank_ << ": InitTables()" << std::endl;
+    z = new int *[num_docs_];
     for (int d = 0; d < num_docs_; d++) {
         int *z_col = new int[doc_length_[d]];
         for (int i = 0; i < doc_length_[d]; i++) {
@@ -188,6 +191,7 @@ void LdaWorker::InitTables() {
         }
         z[d] = z_col;
     }
+    std::cout << world_rank_ << ": Before Sync" << std::endl;
     global_table_.Sync();
 }
 
@@ -196,12 +200,11 @@ void LdaWorker::Setup() {
         log_likelihoods_ = new double[num_iters_];
         wall_secs_ = new double[num_iters_];
         total_wall_secs_ = 0;
-        LoadPartial(data_file_);
-        InitTables();
-    } else {
-        LoadPartial(data_file_);
     }
-    global_table_.Init();
+    LoadPartial(data_file_);
+    std::cout << world_rank_ << ": Finished loading document collection" << std::endl;
+    InitTables();
+    std::cout << world_rank_ << ": Finished initializing table" << std::endl;
 }
 
 
