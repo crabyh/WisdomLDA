@@ -2,6 +2,8 @@
 // Created by Ye Qi on 20/04/2017.
 //
 
+#include <sys/time.h>
+#include <iomanip>
 #include "lda_worker.h"
 
 using namespace std;
@@ -22,12 +24,11 @@ LdaWorker::LdaWorker(int world_size, int world_rank,
 
 void LdaWorker::Run() {
 
-    time_t t1, t2;
+    struct timeval t1, t2;
     double *p = new double[num_topics_];
-
     for (int iter = 0; iter < num_iters_; iter++) {
         if (world_rank_ == MASTER) {
-            time(&t1);
+            gettimeofday(&t1, NULL);
         }
 
         for (int batch = 0; batch < num_clocks_per_iter_; batch++) {
@@ -65,12 +66,15 @@ void LdaWorker::Run() {
         }
 
         if (world_rank_ == MASTER) {
-            time(&t2);
-            wall_secs_[iter] = difftime(t2, t1);
+            // TODO: collect all updates from workers
+            gettimeofday(&t2, NULL);
+            wall_secs_[iter] = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
             total_wall_secs_ += wall_secs_[iter];
             log_likelihoods_[iter] = GetLogLikelihood();
-            cout << "Iteration time: " << wall_secs_[iter] << endl;
-            cout << "Log-likelihood: " << log_likelihoods_[iter] << endl;
+            cout << std::setprecision(2) << "Iteration time: " << wall_secs_[iter] << endl;
+            cout << std::setprecision(6) << "Log-likelihood: " << log_likelihoods_[iter] << endl;
+        } else {
+            // TODO: send update to master
         }
     }
 
