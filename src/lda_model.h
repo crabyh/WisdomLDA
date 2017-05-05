@@ -5,9 +5,11 @@
 #ifndef WISDOMLDA_LDA_MODEL_H
 #define WISDOMLDA_LDA_MODEL_H
 
+#include <iostream>
 #include <mpi.h>
 #include <vector>
 #include <unordered_map>
+
 
 using namespace std;
 
@@ -43,17 +45,17 @@ inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, i
     epoch = 0;
     word_topic_table_ = new int*[num_words_];
     int *word_topic_pools = new int[num_words_ * num_topics_]();
-    for (int i = 0; i < num_words_; i++, word_topic_pools += num_topics) {
+    for (int i = 0; i < num_words_; i++, word_topic_pools += num_topics_) {
         word_topic_table_[i] = word_topic_pools;
     }
     word_topic_table_delta_ = new int*[num_words_];
     int *word_topic_pools_delta = new int[num_words_ * num_topics_]();
-    for (int i = 0; i < num_words_; i++, word_topic_pools_delta += num_topics) {
+    for (int i = 0; i < num_words_; i++, word_topic_pools_delta += num_topics_) {
         word_topic_table_delta_[i] = word_topic_pools_delta;
     }
 
     topic_table_ = new int[num_topics_]();
-    topic_table_delta_ = new int[num_topics]();
+    topic_table_delta_ = new int[num_topics_]();
 }
 
 inline void GlobalTable::IncWordTopicTable(int word, int topic, int delta) {
@@ -81,5 +83,6 @@ inline double *GlobalTable::GetWordTopicTableRows(int column_id) {
 inline int GlobalTable::GetTopicTable(int topic) {
     return topic_table_[topic];
 }
+
 
 #endif //WISDOMLDA_LDA_MODEL_H

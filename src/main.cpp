@@ -48,6 +48,9 @@ int main(int argc, char **argv) {
     int num_clocks_per_iter = atoi(argv[9]);
     int staleness = atoi(argv[10]);
 
+    if (world_rank == MASTER) {
+        std::cout << num_docs << std::endl;
+    }
 
     LdaWorker lda_worker(world_size, world_rank, data_file, output_dir,
                          num_words, num_docs, num_topics, alpha, beta,

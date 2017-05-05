@@ -146,65 +146,84 @@ void LdaWorker::LoadPartial(string dataFile) {
     doc_length_ = new int[num_docs_];
     string line;
     ifstream file(dataFile);
+    if (world_rank_ != MASTER)
+        cout << world_rank_ << ": " << num_docs_ << endl;
+
     if (file.is_open()) {
         int line_num = 0;
         int doc = 0;
+
+        cout << world_rank_ << ": num_docs_ " << num_docs_ << endl;
+
+
         while (getline(file, line)) {
-            if (line_num % world_rank_ == 0) {
+
+//            if (world_rank_ != MASTER)
+//                cout << world_rank_ << ": LoadPartial() " << line << endl;
+
+            if (line_num % world_size_ == world_rank_) {
+
                 doc_length_[doc] = 1;
-                for (unsigned long i = 0; i < line.length(); i++)
+                for (unsigned long i = 0; i < line.length(); i++) {
                     if (line[i] == ',') {
                         doc_length_[doc] += 1;
                     }
-                int *w_col = new int[doc_length_[doc]];
+                }
+
+                w[doc] = new int[doc_length_[doc]];
                 int index = 0;
                 unsigned long last_i = 0;
                 for (unsigned long i = 0; i < line.length(); i++) {
                     if (line[i] == ',') {
-                        w_col[index] = (stoi(line.substr(last_i + 1, i - last_i - 1)));
+                        w[doc][index] = (stoi(line.substr(last_i + 1, i - last_i - 1)));
                         index += 1;
                         last_i = i;
                     }
                 }
-                w_col[index] = (stoi(line.substr(last_i + 1, line.length() - last_i - 1)));
-                w[doc] = w_col;
+                w[doc][index] = (stoi(line.substr(last_i + 1, line.length() - last_i - 1)));
                 doc += 1;
             }
+
             line_num += 1;
         }
+
     }
+
+
     doc_topic_table_ = new int *[num_docs_];
     for (int i = 0; i < num_docs_; i++) {
-        int *doc_length_col = new int[num_topics_]();
-        doc_topic_table_[i] = doc_length_col;
+        doc_topic_table_[i] = new int[num_topics_]();
     }
+
+    cout << world_rank_ << ": LoadPartial Done " << endl;
 }
 
 void LdaWorker::InitTables() {
     std::cout << world_rank_ << ": InitTables()" << std::endl;
     z = new int *[num_docs_];
     for (int d = 0; d < num_docs_; d++) {
-        int *z_col = new int[doc_length_[d]];
+        z[d] = new int[doc_length_[d]];
         for (int i = 0; i < doc_length_[d]; i++) {
             int word = w[d][i];
+//            cout << "word: " << word << endl;
             int topic = rand() % num_topics_;
-            z_col[i] = topic;
+            z[d][i] = topic;
             doc_topic_table_[d][topic] += 1;
             global_table_.IncWordTopicTable(word, topic, 1);
             global_table_.IncTopicTable(topic, 1);
         }
-        z[d] = z_col;
     }
-    std::cout << world_rank_ << ": Before Sync" << std::endl;
+    std::cout << world_rank_ << ": Before Sync()" << std::endl;
     global_table_.Sync();
 }
 
 void LdaWorker::Setup() {
-    if (world_rank_ == MASTER) {
-        log_likelihoods_ = new double[num_iters_];
-        wall_secs_ = new double[num_iters_];
-        total_wall_secs_ = 0;
-    }
+//    if (world_rank_ == MASTER) {
+    log_likelihoods_ = new double[num_iters_];
+    wall_secs_ = new double[num_iters_];
+    total_wall_secs_ = 0;
+//    }
+    std::cout << world_rank_ << ": Finished new arrays" << std::endl;
     LoadPartial(data_file_);
     std::cout << world_rank_ << ": Finished loading document collection" << std::endl;
     InitTables();
