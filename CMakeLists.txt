@@ -10,4 +10,13 @@ set(SOURCE_FILES
         src/lda_model.h
         src/lda_model.cpp)
 
+#SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" -fopenmp)
+
 add_executable(WisdomLDA ${SOURCE_FILES})
+
+find_package(MPI)
+
+include_directories(SYSTEM ${MPI_INCLUDE_PATH})
+
+target_link_libraries(WisdomLDA ${MPI_C_LIBRARIES})
+
