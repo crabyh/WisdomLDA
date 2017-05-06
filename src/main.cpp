@@ -70,6 +70,7 @@ int main(int argc, char **argv) {
     double time_sol = 0.0;
 
     MPI_Barrier(MPI_COMM_WORLD);
+
     double start_time = MPI_Wtime();
     lda_worker.Run();
     MPI_Barrier(MPI_COMM_WORLD);

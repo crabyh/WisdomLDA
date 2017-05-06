@@ -40,8 +40,11 @@ void LdaWorker::Run() {
                 for (int i = 0; i < doc_length_[d]; i++) {
                     int word = w[d][i];
                     int topic = z[d][i];
+                    std::cout << world_rank_ << ": word " << word << " Topic: " << topic << std::endl;
                     doc_topic_table_[d][topic] -= 1;
+                    std::cout << world_rank_ << ": Before innc in World table" << std::endl;
                     global_table_.IncWordTopicTable(word, topic, -1);
+                    std::cout << world_rank_ << ": After innc in World table" << std::endl;
                     global_table_.IncTopicTable(topic, -1);
 
                     double norm = 0.0;
@@ -62,6 +65,7 @@ void LdaWorker::Run() {
                     global_table_.IncTopicTable(new_topic, 1);
                 }
             }
+            std::cout << world_rank_ << ": Before Sync in Run()" << std::endl;
             global_table_.Sync();
         }
 
@@ -172,8 +176,8 @@ void LdaWorker::LoadPartial(string dataFile) {
 
                 w[doc] = new int[doc_length_[doc]];
                 int index = 0;
-                unsigned long last_i = 0;
-                for (unsigned long i = 0; i < line.length(); i++) {
+                int last_i = -1;
+                for (int i = 0; i < line.length(); i++) {
                     if (line[i] == ',') {
                         w[doc][index] = (stoi(line.substr(last_i + 1, i - last_i - 1)));
                         index += 1;

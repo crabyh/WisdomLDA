@@ -75,7 +75,7 @@ void GlobalTable::SyncWordTopicTable() {
                     &probe_status);
             for (int w = 0; w < num_words_; w++) {
                 for (int k = 0; k < num_topics_; k++) {
-                    (global_word_topic_table_delta + w)[k] += (partial_word_topic_table_delta + w)[k];
+                    (global_word_topic_table_delta + w * num_topics_)[k] += (partial_word_topic_table_delta + w * num_topics_)[k];
                 }
             }
         }
