@@ -7,9 +7,9 @@
 
 
 void GlobalTable::Sync() {
-    cout << world_rank_ << ": Before SyncTopicTable()" << endl;
+//    cout << world_rank_ << ": Before SyncTopicTable()" << endl;
     SyncTopicTable();
-    cout << world_rank_ << ": Before SyncWordTopicTable()" << endl;
+//    cout << world_rank_ << ": Before SyncWordTopicTable()" << endl;
     SyncWordTopicTable();
 }
 
@@ -75,7 +75,7 @@ void GlobalTable::SyncWordTopicTable() {
                     &probe_status);
             for (int w = 0; w < num_words_; w++) {
                 for (int k = 0; k < num_topics_; k++) {
-                    (global_word_topic_table_delta + w * num_topics_)[k] += (partial_word_topic_table_delta + w * num_topics_)[k];
+                    (global_word_topic_table_delta + w)[k] += (partial_word_topic_table_delta + w)[k];
                 }
             }
         }
@@ -97,12 +97,10 @@ void GlobalTable::SyncWordTopicTable() {
         MPI_Isend(word_topic_table_delta_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD, &send_req);
         MPI_Recv(global_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
                  MPI_STATUS_IGNORE);
-        for (int w = 0; w < num_words_; w++) {
-            for (int k = 0; k < num_topics_; k++) {
-                (word_topic_table_ + w)[k] = (word_topic_table_ + w)[k] + (global_word_topic_table_delta + w)[k] -
-                        (topic_table_delta_ + w)[k];
-                (topic_table_delta_ + w)[k] = 0;
-            }
+        for (int w_k = 0; w_k < num_words_ * num_topics_; w_k++) {
+            word_topic_table_[w_k] = word_topic_table_[w_k] + global_word_topic_table_delta[w_k] -
+                    topic_table_delta_[w_k];
+            topic_table_delta_[w_k] = 0;
         }
 
     }
