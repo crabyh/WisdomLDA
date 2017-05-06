@@ -7,9 +7,9 @@
 
 
 void GlobalTable::Sync() {
-//    cout << world_rank_ << ": Before SyncTopicTable()" << endl;
+    DebugPrint("Before SyncTopicTable()");
     SyncTopicTable();
-//    cout << world_rank_ << ": Before SyncWordTopicTable()" << endl;
+    DebugPrint("Before SyncWordTopicTable()");
     SyncWordTopicTable();
 }
 
@@ -22,10 +22,10 @@ void GlobalTable::SyncTopicTable() {
         MPI_Status probe_status;
         int *partial_topic_table_delta = new int[num_topics_]();
         for (int i = 1; i < world_size_; i++) {
-            cout << world_rank_ << ": SyncTopicTable() Fuckkkk" << i << endl;
+            DebugPrint("SyncTopicTable() Fuckkkk" + to_string(i));
 
             MPI_Recv(partial_topic_table_delta, num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD, &probe_status);
-            cout << world_rank_ << ": SyncTopicTable() Fuckkkk" << i << endl;
+            DebugPrint("SyncTopicTable() Fuckkkk" + to_string(i));
 
             for (int k = 0; k < num_topics_; k++) {
                 global_topic_table_delta[k] += partial_topic_table_delta[k];
@@ -47,10 +47,10 @@ void GlobalTable::SyncTopicTable() {
     } else {
 
         MPI_Request send_req;
-        cout << world_rank_ << ": SyncTopicTable() Before send " << endl;
+        DebugPrint("SyncTopicTable() Before send ");
 
         MPI_Isend(topic_table_delta_, num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD, &send_req);
-        cout << world_rank_ << ": SyncTopicTable() After send " << endl;
+        DebugPrint("SyncTopicTable() After send ");
 
         MPI_Recv(global_topic_table_delta, num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         for (int k = 0; k < num_topics_; k++) {
@@ -71,13 +71,19 @@ void GlobalTable::SyncWordTopicTable() {
         MPI_Status probe_status;
         int *partial_word_topic_table_delta = new int[num_words_ * num_topics_]();
         for (int i = 1; i < world_size_; i++) {
+            DebugPrint("SyncWordTopicTable() Before Recv " + to_string(i));
             MPI_Recv(partial_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD,
                     &probe_status);
-            for (int w = 0; w < num_words_; w++) {
+            DebugPrint("SyncWordTopicTable() After Recv " + to_string(i));
+            int *global_word_topic_table_delta_ptr = global_word_topic_table_delta;
+            int *partial_word_topic_table_delta_ptr = partial_word_topic_table_delta;
+            for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_,
+                    partial_word_topic_table_delta_ptr += num_topics_) {
                 for (int k = 0; k < num_topics_; k++) {
-                    (global_word_topic_table_delta + w)[k] += (partial_word_topic_table_delta + w)[k];
+                    global_word_topic_table_delta_ptr[k] += partial_word_topic_table_delta_ptr[k];
                 }
             }
+
         }
 
         MPI_Request* send_reqs = new MPI_Request[world_size_];
@@ -89,19 +95,33 @@ void GlobalTable::SyncWordTopicTable() {
             MPI_Status status;
             MPI_Wait(&send_reqs[i], &status);
         }
+
+        delete[] partial_word_topic_table_delta;
         delete[] send_reqs;
 
     } else {
 
+        DebugPrint("SyncWordTopicTable() Before send ");
+
         MPI_Request send_req;
-        MPI_Isend(word_topic_table_delta_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD, &send_req);
+        MPI_Isend(*word_topic_table_delta_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
+                  &send_req);
+        DebugPrint("SyncWordTopicTable() After send ");
+
         MPI_Recv(global_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
                  MPI_STATUS_IGNORE);
-        for (int w_k = 0; w_k < num_words_ * num_topics_; w_k++) {
-            word_topic_table_[w_k] = word_topic_table_[w_k] + global_word_topic_table_delta[w_k] -
-                    topic_table_delta_[w_k];
-            topic_table_delta_[w_k] = 0;
+        DebugPrint("SyncWordTopicTable() After recv ");
+
+        int *global_word_topic_table_delta_ptr = global_word_topic_table_delta;
+
+        for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
+            for (int k = 0; k < num_topics_; k++) {
+                word_topic_table_[w][k] = word_topic_table_[w][k] + global_word_topic_table_delta_ptr[k] -
+                                      word_topic_table_delta_[w][k];
+                word_topic_table_delta_[w][k] = 0;
+            }
         }
+
 
     }
 

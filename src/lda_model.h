@@ -38,6 +38,7 @@ public:
     void Sync();
     void SyncTopicTable();
     void SyncWordTopicTable();
+    void DebugPrint(const string &s);
 };
 
 inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, int num_topics) :
@@ -84,5 +85,8 @@ inline int GlobalTable::GetTopicTable(int topic) {
     return topic_table_[topic];
 }
 
+inline void GlobalTable::DebugPrint(const string &s) {
+//    cout << world_rank_ << ": " << s << endl;
+}
 
 #endif //WISDOMLDA_LDA_MODEL_H

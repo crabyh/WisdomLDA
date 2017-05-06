@@ -24,8 +24,11 @@ LdaWorker::LdaWorker(int world_size, int world_rank,
 
 void LdaWorker::Run() {
 
+    global_table_.DebugPrint("Run()");
+
     struct timeval t1, t2;
     double *p = new double[num_topics_];
+
     for (int iter = 0; iter < num_iters_; iter++) {
         if (world_rank_ == MASTER) {
             gettimeofday(&t1, NULL);
@@ -40,11 +43,11 @@ void LdaWorker::Run() {
                 for (int i = 0; i < doc_length_[d]; i++) {
                     int word = w[d][i];
                     int topic = z[d][i];
-                    std::cout << world_rank_ << ": word " << word << " Topic: " << topic << std::endl;
+                    global_table_.DebugPrint(": word " + to_string(word) + " Topic: " + to_string(topic));
                     doc_topic_table_[d][topic] -= 1;
-                    std::cout << world_rank_ << ": Before innc in World table" << std::endl;
+                    global_table_.DebugPrint(": Before innc in World table");
                     global_table_.IncWordTopicTable(word, topic, -1);
-                    std::cout << world_rank_ << ": After innc in World table" << std::endl;
+                    global_table_.DebugPrint(": After innc in World table");
                     global_table_.IncTopicTable(topic, -1);
 
                     double norm = 0.0;
@@ -65,7 +68,7 @@ void LdaWorker::Run() {
                     global_table_.IncTopicTable(new_topic, 1);
                 }
             }
-            std::cout << world_rank_ << ": Before Sync in Run()" << std::endl;
+            global_table_.DebugPrint(": Before Sync in Run()");
             global_table_.Sync();
         }
 
@@ -203,13 +206,12 @@ void LdaWorker::LoadPartial(string dataFile) {
 }
 
 void LdaWorker::InitTables() {
-    std::cout << world_rank_ << ": InitTables()" << std::endl;
+    global_table_.DebugPrint(": InitTables()");
     z = new int *[num_docs_];
     for (int d = 0; d < num_docs_; d++) {
         z[d] = new int[doc_length_[d]];
         for (int i = 0; i < doc_length_[d]; i++) {
             int word = w[d][i];
-//            cout << "word: " << word << endl;
             int topic = rand() % num_topics_;
             z[d][i] = topic;
             doc_topic_table_[d][topic] += 1;
@@ -217,7 +219,7 @@ void LdaWorker::InitTables() {
             global_table_.IncTopicTable(topic, 1);
         }
     }
-    std::cout << world_rank_ << ": Before Sync()" << std::endl;
+    global_table_.DebugPrint(": Before Sync()");
     global_table_.Sync();
 }
 
@@ -227,11 +229,11 @@ void LdaWorker::Setup() {
     wall_secs_ = new double[num_iters_];
     total_wall_secs_ = 0;
 //    }
-    std::cout << world_rank_ << ": Finished new arrays" << std::endl;
+    global_table_.DebugPrint(": Finished new arrays");
     LoadPartial(data_file_);
-    std::cout << world_rank_ << ": Finished loading document collection" << std::endl;
+    global_table_.DebugPrint(": Finished loading document collection");
     InitTables();
-    std::cout << world_rank_ << ": Finished initializing table" << std::endl;
+    global_table_.DebugPrint(": Finished initializing table");
 }
 
 
