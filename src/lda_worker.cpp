@@ -39,6 +39,8 @@ void LdaWorker::Run() {
             int begin = num_docs_ * batch / num_clocks_per_iter_;
             int end = num_docs_ * (batch + 1) / num_clocks_per_iter_;
 
+            global_table_.TestWordTopicSync();
+
             // Loop through each document in the current batch.
             for (int d = begin; d < end; d++) {
                 for (int i = 0; i < doc_length_[d]; i++) {
@@ -70,7 +72,7 @@ void LdaWorker::Run() {
                 }
             }
             global_table_.DebugPrint(": Before Sync in Run()");
-            global_table_.Sync();
+            global_table_.Async();
         }
 
         if (world_rank_ == MASTER) {
