@@ -271,14 +271,14 @@ double LdaWorker::GetLogLikelihood() {
         lik -= LogDirichlet(beta_, num_words_);
         delete[] temp;
     }
-    for (int d = 0; d < num_docs_; d++) {
-        double *temp = DocTopicTableCols(d);
-        for (int k = 0; k < num_topics_; k++) {
-            temp[k] += alpha_;
-        }
-        lik += LogDirichlet(temp, num_topics_);
-        lik -= LogDirichlet(alpha_, num_topics_);
-        delete[] temp;
-    }
+//    for (int d = 0; d < num_docs_; d++) {
+//        double *temp = DocTopicTableCols(d);
+//        for (int k = 0; k < num_topics_; k++) {
+//            temp[k] += alpha_;
+//        }
+//        lik += LogDirichlet(temp, num_topics_);
+//        lik -= LogDirichlet(alpha_, num_topics_);
+//        delete[] temp;
+//    }
     return lik;
 }

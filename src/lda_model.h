@@ -93,13 +93,13 @@ inline void GlobalTable::DebugPrint(const string &s) {
 }
 
 inline void GlobalTable::DebugPrintTable() {
-//    int sum = 0;
-//    for (int w = 0; w < num_words_; w++) {
-//        for (int k = 0; k < num_topics_; k++) {
-//            sum += word_topic_table_[w][k];
-//        }
-//    }
-//    cout << world_rank_ << ": Sum = " << sum << endl;
+    int sum = 0;
+    for (int w = 0; w < num_words_; w++) {
+        for (int k = 0; k < num_topics_; k++) {
+            sum += word_topic_table_[w][k];
+        }
+    }
+    cout << world_rank_ << ": Sum = " << sum << endl;
 }
 
 template<typename T>
