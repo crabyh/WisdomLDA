@@ -26,81 +26,72 @@ LdaWorker::LdaWorker(int world_size, int world_rank,
 void LdaWorker::Run() {
 
     global_table_.DebugPrint("Run()");
-
     struct timeval t1, t2;
     double *p = new double[num_topics_];
 
     for (int iter = 0; iter < num_iters_; iter++) {
         if (world_rank_ == MASTER) {
             gettimeofday(&t1, NULL);
-        }
-
-        for (int batch = 0; batch < num_clocks_per_iter_; batch++) {
-            int begin = num_docs_ * batch / num_clocks_per_iter_;
-            int end = num_docs_ * (batch + 1) / num_clocks_per_iter_;
-
-            global_table_.TestWordTopicSync();
-
-            // Loop through each document in the current batch.
-            for (int d = begin; d < end; d++) {
-                for (int i = 0; i < doc_length_[d]; i++) {
-                    int word = w[d][i];
-                    int topic = z[d][i];
-                    global_table_.DebugPrint(": word " + ToString(word) + " Topic: " + ToString(topic));
-                    doc_topic_table_[d][topic] -= 1;
-                    global_table_.DebugPrint(": Before innc in World table");
-                    global_table_.IncWordTopicTable(word, topic, -1);
-                    global_table_.DebugPrint(": After innc in World table");
-                    global_table_.IncTopicTable(topic, -1);
-
-                    double norm = 0.0;
-                    for (int k = 0; k < num_topics_; k++) {
-                        double bk = (global_table_.GetWordTopicTable(word, k) + beta_) /
-                                    ((double) global_table_.GetTopicTable(k) + num_words_ * beta_);
-                        double ak = doc_topic_table_[d][k] + alpha_;
-                        double pk = bk * ak;
-                        p[k] = pk;
-                        norm += pk;
-                    }
-
-                    int new_topic = SampleMultinomial(p, norm);
-
-                    z[d][i] = new_topic;
-                    doc_topic_table_[d][new_topic] += 1;
-                    global_table_.IncWordTopicTable(word, new_topic, 1);
-                    global_table_.IncTopicTable(new_topic, 1);
-                }
-            }
-            global_table_.DebugPrint(": Before Sync in Run()");
             global_table_.Async();
-        }
-
-        if (world_rank_ == MASTER) {
-            // TODO: collect all updates from workers
             gettimeofday(&t2, NULL);
             wall_secs_[iter] = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
             total_wall_secs_ += wall_secs_[iter];
             log_likelihoods_[iter] = GetLogLikelihood();
             cout << std::setprecision(2) << "Iteration time: " << wall_secs_[iter] << endl;
             cout << std::setprecision(6) << "Log-likelihood: " << log_likelihoods_[iter] << endl;
-        } else {
-            // TODO: send update to master
+        }
+        else {
+            for (int batch = 0; batch < num_clocks_per_iter_; batch++) {
+                int begin = num_docs_ * batch / num_clocks_per_iter_;
+                int end = num_docs_ * (batch + 1) / num_clocks_per_iter_;
+
+                global_table_.TestWordTopicSync();
+
+                // Loop through each document in the current batch.
+                for (int d = begin; d < end; d++) {
+                    for (int i = 0; i < doc_length_[d]; i++) {
+                        int word = w[d][i];
+                        int topic = z[d][i];
+                        global_table_.DebugPrint(": word " + ToString(word) + " Topic: " + ToString(topic));
+                        doc_topic_table_[d][topic] -= 1;
+                        global_table_.DebugPrint(": Before innc in World table");
+                        global_table_.IncWordTopicTable(word, topic, -1);
+                        global_table_.DebugPrint(": After innc in World table");
+                        global_table_.IncTopicTable(topic, -1);
+
+                        double norm = 0.0;
+                        for (int k = 0; k < num_topics_; k++) {
+                            double bk = (global_table_.GetWordTopicTable(word, k) + beta_) /
+                                        ((double) global_table_.GetTopicTable(k) + num_words_ * beta_);
+                            double ak = doc_topic_table_[d][k] + alpha_;
+                            double pk = bk * ak;
+                            p[k] = pk;
+                            norm += pk;
+                        }
+
+                        int new_topic = SampleMultinomial(p, norm);
+
+                        z[d][i] = new_topic;
+                        doc_topic_table_[d][new_topic] += 1;
+                        global_table_.IncWordTopicTable(word, new_topic, 1);
+                        global_table_.IncTopicTable(new_topic, 1);
+                    }
+                }
+                global_table_.DebugPrint(": Before Sync in Run()");
+                global_table_.Async();
+            }
         }
     }
-
     delete[] p;
-
-
-    if (world_rank_ == MASTER) {
-        ofstream file(output_dir_ + "/likelihood.csv");
-        for (int i = 0; i < num_iters_; i++) {
-            string s = ToString(i + 1) + "," + ToString(wall_secs_[i]) + "," +
-                       ToString(log_likelihoods_[i]) + "\n";
-            file.write(s.c_str(), s.size());
-        }
-        file.close();
-    }
-
+//    if (world_rank_ == MASTER) {
+//        ofstream file(output_dir_ + "/likelihood.csv");
+//        for (int i = 0; i < num_iters_; i++) {
+//            string s = ToString(i + 1) + "," + ToString(wall_secs_[i]) + "," +
+//                       ToString(log_likelihoods_[i]) + "\n";
+//            file.write(s.c_str(), s.size());
+//        }
+//        file.close();
+//    }
 }
 
 int LdaWorker::SampleMultinomial(double *p, double norm) {
@@ -158,28 +149,23 @@ void LdaWorker::LoadPartial(string dataFile) {
     ifstream file(dataFile);
     if (world_rank_ != MASTER)
         cout << world_rank_ << ": " << num_docs_ << endl;
+    else
+        return;
 
     if (file.is_open()) {
         int line_num = 0;
         int doc = 0;
-
         cout << world_rank_ << ": num_docs_ " << num_docs_ << endl;
-
-
         while (getline(file, line)) {
-
 //            if (world_rank_ != MASTER)
 //                cout << world_rank_ << ": LoadPartial() " << line << endl;
-
-            if (line_num % world_size_ == world_rank_) {
-
+            if (line_num % (world_size_ - 1) == world_rank_ - 1) {
                 doc_length_[doc] = 1;
                 for (unsigned long i = 0; i < line.length(); i++) {
                     if (line[i] == ',') {
                         doc_length_[doc] += 1;
                     }
                 }
-
                 w[doc] = new int[doc_length_[doc]];
                 int index = 0;
                 int last_i = -1;
@@ -193,7 +179,6 @@ void LdaWorker::LoadPartial(string dataFile) {
                 w[doc][index] = (stoi(line.substr(last_i + 1, line.length() - last_i - 1)));
                 doc += 1;
             }
-
             line_num += 1;
         }
 

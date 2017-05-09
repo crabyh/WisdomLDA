@@ -210,8 +210,9 @@ void GlobalTable::AsyncWordTopicTable(){
         delete[] send_reqs;
 
     } else {
-
-
+        while (!word_topic_synced_) {
+            TestWordTopicSync();
+        }
         DebugPrint("SyncWordTopicTable() Before send ");
 
         MPI_Request send_req;
@@ -219,12 +220,12 @@ void GlobalTable::AsyncWordTopicTable(){
                   &send_req);
         DebugPrint("SyncWordTopicTable() After send ");
 
-        word_topic_synced = false;
+        word_topic_synced_ = false;
         MPI_Irecv(word_topic_table_delta_buffer_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
                   &word_topic_request_);
         DebugPrint("SyncWordTopicTable() After recv ");
 
-        TestWordTopicSync();
+//        SyncWordTopic();
 
         // Reset word_topic_table_delta_
         for (int w = 0; w < num_words_; w++) {
@@ -239,22 +240,17 @@ void GlobalTable::AsyncWordTopicTable(){
 }
 
 void GlobalTable::TestWordTopicSync() {
-    if (word_topic_synced) return;
-//    MPI_Wait (&word_topic_request_, MPI_STATUS_IGNORE);
-//    word_topic_synced = 1;
-    MPI_Test (&word_topic_request_, &word_topic_synced, MPI_STATUS_IGNORE);
-    if (word_topic_synced) {
+    if (word_topic_synced_) return;
+    MPI_Test (&word_topic_request_, &word_topic_synced_, MPI_STATUS_IGNORE);
+    if (word_topic_synced_) {
         WordTopicMerge();
     }
 }
 
 void GlobalTable::SyncWordTopic(){
-    if(!word_topic_synced) {
-        cout << "Last word_topic_synced not updated before the next Sync!!!" << endl;
-        MPI_Wait (&word_topic_request_, MPI_STATUS_IGNORE);
-        word_topic_synced = 1;
-        WordTopicMerge();
-    }
+    MPI_Wait (&word_topic_request_, MPI_STATUS_IGNORE);
+    word_topic_synced_ = 1;
+    WordTopicMerge();
 };
 
 void GlobalTable::WordTopicMerge() {

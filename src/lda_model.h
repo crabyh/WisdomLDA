@@ -21,7 +21,7 @@ private:
     int **word_topic_table_delta_buffer_;
     int *topic_table_delta_;
     int epoch;
-    int word_topic_synced;
+    int word_topic_synced_;
     MPI_Request word_topic_request_;
 
 public:
@@ -75,7 +75,7 @@ inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, i
     topic_table_ = new int[num_topics_]();
     topic_table_delta_ = new int[num_topics_]();
 
-    word_topic_synced = 1;
+    word_topic_synced_ = 1;
 }
 
 inline void GlobalTable::IncWordTopicTable(int word, int topic, int delta) {
