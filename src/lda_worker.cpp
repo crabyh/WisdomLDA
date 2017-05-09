@@ -4,6 +4,7 @@
 
 #include <sys/time.h>
 #include <iomanip>
+
 #include "lda_worker.h"
 
 using namespace std;
@@ -43,7 +44,7 @@ void LdaWorker::Run() {
                 for (int i = 0; i < doc_length_[d]; i++) {
                     int word = w[d][i];
                     int topic = z[d][i];
-                    global_table_.DebugPrint(": word " + to_string(word) + " Topic: " + to_string(topic));
+                    global_table_.DebugPrint(": word " + ToString(word) + " Topic: " + ToString(topic));
                     doc_topic_table_[d][topic] -= 1;
                     global_table_.DebugPrint(": Before innc in World table");
                     global_table_.IncWordTopicTable(word, topic, -1);
@@ -91,8 +92,8 @@ void LdaWorker::Run() {
     if (world_rank_ == MASTER) {
         ofstream file(output_dir_ + "/likelihood.csv");
         for (int i = 0; i < num_iters_; i++) {
-            string s = to_string(i + 1) + "," + to_string(wall_secs_[i]) + "," +
-                       to_string(log_likelihoods_[i]) + "\n";
+            string s = ToString(i + 1) + "," + ToString(wall_secs_[i]) + "," +
+                       ToString(log_likelihoods_[i]) + "\n";
             file.write(s.c_str(), s.size());
         }
         file.close();
@@ -180,7 +181,7 @@ void LdaWorker::LoadPartial(string dataFile) {
                 w[doc] = new int[doc_length_[doc]];
                 int index = 0;
                 int last_i = -1;
-                for (int i = 0; i < line.length(); i++) {
+                for (int i = 0; i < (int) line.length(); i++) {
                     if (line[i] == ',') {
                         w[doc][index] = (stoi(line.substr(last_i + 1, i - last_i - 1)));
                         index += 1;

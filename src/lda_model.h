@@ -6,10 +6,10 @@
 #define WISDOMLDA_LDA_MODEL_H
 
 #include <iostream>
-#include <mpi.h>
 #include <vector>
-#include <unordered_map>
+#include <sstream>
 
+#include "mpi.h"
 
 using namespace std;
 
@@ -38,7 +38,10 @@ public:
     void Sync();
     void SyncTopicTable();
     void SyncWordTopicTable();
+
+    // for debugging
     void DebugPrint(const string &s);
+    void DebugPrintTable();
 };
 
 inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, int num_topics) :
@@ -87,6 +90,24 @@ inline int GlobalTable::GetTopicTable(int topic) {
 
 inline void GlobalTable::DebugPrint(const string &s) {
 //    cout << world_rank_ << ": " << s << endl;
+}
+
+inline void GlobalTable::DebugPrintTable() {
+//    int sum = 0;
+//    for (int w = 0; w < num_words_; w++) {
+//        for (int k = 0; k < num_topics_; k++) {
+//            sum += word_topic_table_[w][k];
+//        }
+//    }
+//    cout << world_rank_ << ": Sum = " << sum << endl;
+}
+
+template<typename T>
+string ToString(T input) {
+    stringstream ss;
+    ss << input;
+    string str = ss.str();
+    return str;
 }
 
 #endif //WISDOMLDA_LDA_MODEL_H

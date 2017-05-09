@@ -2,9 +2,9 @@
 // Created by Ye Qi on 29/04/2017.
 //
 
-#include "lda_model.h"
 #define MASTER 0
 
+#include "lda_model.h"
 
 void GlobalTable::Sync() {
     DebugPrint("Before SyncTopicTable()");
