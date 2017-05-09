@@ -38,16 +38,18 @@ void LdaWorker::Run() {
             int begin = num_docs_ * batch / num_clocks_per_iter_;
             int end = num_docs_ * (batch + 1) / num_clocks_per_iter_;
 
+            if (world_rank_ != MASTER) global_table_.TestWordTopicSync();
+
             // Loop through each document in the current batch.
             for (int d = begin; d < end; d++) {
                 for (int i = 0; i < doc_length_[d]; i++) {
                     int word = w[d][i];
                     int topic = z[d][i];
-                    global_table_.DebugPrint(": word " + to_string(word) + " Topic: " + to_string(topic));
+//                    global_table_.DebugPrint(": word " + to_string(word) + " Topic: " + to_string(topic));
                     doc_topic_table_[d][topic] -= 1;
-                    global_table_.DebugPrint(": Before innc in World table");
+//                    global_table_.DebugPrint(": Before innc in World table");
                     global_table_.IncWordTopicTable(word, topic, -1);
-                    global_table_.DebugPrint(": After innc in World table");
+//                    global_table_.DebugPrint(": After innc in World table");
                     global_table_.IncTopicTable(topic, -1);
 
                     double norm = 0.0;
