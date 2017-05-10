@@ -39,8 +39,10 @@ int main(int argc, char **argv) {
     string data_file = argv[1];
     string output_dir = argv[2];
     int num_words = atoi(argv[3]) + 1;
+//    int num_docs = atoi(argv[4]) / world_size + ((atoi(argv[4]) % world_size) > world_rank ? 1 : 0);
     // Set num_docs equals to number of documents belongs to that worker.
-    int num_docs = atoi(argv[4]) / world_size + ((atoi(argv[4]) % world_size) > world_rank ? 1 : 0);
+    int num_docs = atoi(argv[4]) / (world_size - 1) + ((atoi(argv[4]) % (world_size - 1)) > (world_rank + 1) ? 1 : 0);
+    if (world_rank == MASTER) num_docs = 0;
     int num_topics = atoi(argv[5]);
     double alpha = atof(argv[6]);
     double beta = atof(argv[7]);

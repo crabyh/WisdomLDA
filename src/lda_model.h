@@ -18,8 +18,11 @@ private:
     int **word_topic_table_;
     int *topic_table_;
     int **word_topic_table_delta_;
+    int **word_topic_table_delta_buffer_;
     int *topic_table_delta_;
     int epoch;
+    int word_topic_synced_;
+    MPI_Request word_topic_request_;
 
 public:
     int world_size_;
@@ -36,8 +39,13 @@ public:
     double *GetWordTopicTableRows(int column_id);
     int GetTopicTable(int topic);
     void Sync();
+    void Async();
     void SyncTopicTable();
     void SyncWordTopicTable();
+    void TestWordTopicSync();
+    void WordTopicMerge();
+    void SyncWordTopic();
+    void AsyncWordTopicTable();
 
     // for debugging
     void DebugPrint(const string &s);
@@ -58,8 +66,16 @@ inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, i
         word_topic_table_delta_[i] = word_topic_pools_delta;
     }
 
+    word_topic_table_delta_buffer_ = new int*[num_words_];
+    int *word_topic_pools_buffer_delta = new int[num_words_ * num_topics_]();
+    for (int i = 0; i < num_words_; i++, word_topic_pools_buffer_delta += num_topics_) {
+        word_topic_table_delta_buffer_[i] = word_topic_pools_buffer_delta;
+    }
+
     topic_table_ = new int[num_topics_]();
     topic_table_delta_ = new int[num_topics_]();
+
+    word_topic_synced_ = 1;
 }
 
 inline void GlobalTable::IncWordTopicTable(int word, int topic, int delta) {
