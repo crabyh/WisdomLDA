@@ -21,7 +21,7 @@ We designed two methods to perform LDA with OpenMP. First, they share some same 
 
 1. Synchronized LDA: All the workers and the master synchronized with each other at the checkpoint (after certain documents). When they are synchronizing, they are blocked until all the workers have the most up-to-dated parameter tables. Below is the chart to illustrate this workflow:
 
-![Synchronized LDA]({{ site.github.proposal_url }}/graph1.png)
+![Synchronized LDA]({{ site.github.proposal_url }}graph1.png)
 
 2. Asynchronized LDA: 
 
