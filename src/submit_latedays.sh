@@ -1,12 +1,15 @@
 #!/bin/bash
 
+make clean
+make latedays
+
 # Max allowed nodes.
 MAX_ALLOWED_NODES=15
 
 # Each node has 24 cores.
 TOTAL_PROCESSORS_PER_NODE=24
 
-# 2 minute time limit.
+# 4 minute time limit.
 WALLTIME=1
 
 # Ensure 2 arguments for nodes and processors per node.
