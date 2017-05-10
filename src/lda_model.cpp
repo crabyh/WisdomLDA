@@ -3,18 +3,43 @@
 //
 
 #define MASTER 0
-#define MPI_SEND_LIMIT (128 * 1024)
+#define MPI_SEND_LIMIT (2 << 20)
 
 #define TOPIC_TABLE 10
 #define WORD_TOPIC_TABLE 11
 
 #include "lda_model.h"
 
-void GlobalTable::Sync() {
-    DebugPrint("Before SyncTopicTable()");
-    SyncTopicTable();
-    DebugPrint("Before SyncWordTopicTable()");
-    SyncWordTopicTable();
+//
+//void GlobalTable::Sync() {
+//    DebugPrint("Before SyncTopicTable()");
+//    SyncTopicTable();
+//    DebugPrint("Before SyncWordTopicTable()");
+////    SyncWordTopicTable();
+//}
+
+
+void GlobalTable::Sync(){
+    int *global_topic_table_delta = new int[num_topics_];
+    MPI_Allreduce(topic_table_delta_, global_topic_table_delta, num_topics_, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    for (int k = 0; k < num_topics_; k++) {
+        topic_table_[k] = topic_table_[k] + global_topic_table_delta[k] - topic_table_delta_[k];
+        topic_table_delta_[k] = 0;
+    }
+    delete[] global_topic_table_delta;
+
+    int *global_word_topic_table_delta = new int[num_words_ * num_topics_];
+    MPI_Allreduce(*word_topic_table_delta_, global_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, MPI_SUM,
+                  MPI_COMM_WORLD);
+    int *global_word_topic_table_delta_ptr = global_word_topic_table_delta;
+    for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
+        for (int k = 0; k < num_topics_; k++) {
+            word_topic_table_[w][k] = word_topic_table_[w][k] + global_word_topic_table_delta_ptr[k] -
+                                      word_topic_table_delta_[w][k];
+            word_topic_table_delta_[w][k] = 0;
+        }
+    }
+    delete[] global_word_topic_table_delta;
 }
 
 
@@ -72,14 +97,15 @@ void GlobalTable::SyncTopicTable() {
 
     }
 
-//    DebugPrint("Topic Table After Sync()");
-//    for (int k = 0; k < num_topics_; ++k) {
-//        cout << topic_table_[k] << " ";
-//    }
-//    cout << endl;
+    DebugPrint("Topic Table After Sync()");
+    for (int k = 0; k < num_topics_; ++k) {
+        cout << topic_table_[k] << " ";
+    }
+    cout << endl;
 
     delete[] global_topic_table_delta;
 }
+
 
 void GlobalTable::SyncWordTopicTable() {
     int *global_word_topic_table_delta = new int[num_words_ * num_topics_]();
@@ -178,7 +204,6 @@ void GlobalTable::SyncWordTopicTable() {
 //        MPI_Isend(*word_topic_table_delta_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
 //                  &send_req);
 
-        memcpy
         DebugPrint("SyncWordTopicTable() After send ");
 
         for (int send_chunk = 0; send_chunk < send_chunk_total; send_chunk++) {
