@@ -32,31 +32,27 @@ void LdaWorker::Run() {
     for (int iter = 0; iter < num_iters_; iter++) {
         if (world_rank_ == MASTER) {
             gettimeofday(&t1, NULL);
-            global_table_.Async();
-            gettimeofday(&t2, NULL);
-            wall_secs_[iter] = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
-            total_wall_secs_ += wall_secs_[iter];
-            log_likelihoods_[iter] = GetLogLikelihood();
-            cout << std::setprecision(2) << "Iteration time: " << wall_secs_[iter] << endl;
-            cout << std::setprecision(6) << "Log-likelihood: " << log_likelihoods_[iter] << endl;
         }
-        else {
-            for (int batch = 0; batch < num_clocks_per_iter_; batch++) {
+        for (int batch = 0; batch < num_clocks_per_iter_; batch++) {
+            if (world_rank_ == MASTER) {
+                global_table_.Async();
+//                global_table_.Sync();
+            } else {
                 int begin = num_docs_ * batch / num_clocks_per_iter_;
                 int end = num_docs_ * (batch + 1) / num_clocks_per_iter_;
 
-                global_table_.TestWordTopicSync();
+//                global_table_.TestWordTopicSync();
 
                 // Loop through each document in the current batch.
                 for (int d = begin; d < end; d++) {
+
+
                     for (int i = 0; i < doc_length_[d]; i++) {
                         int word = w[d][i];
                         int topic = z[d][i];
-                        global_table_.DebugPrint(": word " + ToString(word) + " Topic: " + ToString(topic));
+//                        global_table_.DebugPrint(": word " + ToString(word) + " Topic: " + ToString(topic));
                         doc_topic_table_[d][topic] -= 1;
-                        global_table_.DebugPrint(": Before innc in World table");
                         global_table_.IncWordTopicTable(word, topic, -1);
-                        global_table_.DebugPrint(": After innc in World table");
                         global_table_.IncTopicTable(topic, -1);
 
                         double norm = 0.0;
@@ -80,6 +76,15 @@ void LdaWorker::Run() {
                 global_table_.DebugPrint(": Before Sync in Run()");
                 global_table_.Async();
             }
+        }
+        if (world_rank_ == MASTER) {
+            gettimeofday(&t2, NULL);
+            wall_secs_[iter] = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
+            total_wall_secs_ += wall_secs_[iter];
+            log_likelihoods_[iter] = GetLogLikelihood();
+//                cout << std::setprecision(2) << "Iteration time: " << wall_secs_[iter] << endl;
+            cout << std::setprecision(4) << total_wall_secs_ << "\t";
+            cout << std::setprecision(6) << log_likelihoods_[iter] << endl;
         }
     }
     delete[] p;
