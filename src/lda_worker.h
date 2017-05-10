@@ -11,7 +11,7 @@
 #include <vector>
 #include <unordered_map>
 #include <math.h>
-#include "lda_model.h"
+#include "dense_model.h"
 
 #define MASTER 0
 

@@ -7,8 +7,10 @@ set(SOURCE_FILES
         src/main.cpp
         src/lda_worker.cpp
         src/lda_worker.h
-        src/lda_model.h
-        src/lda_model.cpp)
+        src/dense_model.cpp
+        src/dense_model.h
+        src/sparse_model.cpp
+        src/sparse_model.h)
 
 #SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" -fopenmp)
 

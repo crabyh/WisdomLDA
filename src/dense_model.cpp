@@ -8,7 +8,7 @@
 #define TOPIC_TABLE 10
 #define WORD_TOPIC_TABLE 11
 
-#include "lda_model.h"
+#include "dense_model.h"
 
 
 void GlobalTable::Sync() {
