@@ -16,13 +16,14 @@ void GlobalTable::Sync() {
 
 void GlobalTable::Async() {
     if (world_rank_ != MASTER) {
-        if (!word_topic_synced_) {
-            SyncWordTopic();
+        while (!word_topic_synced_) {
+            DebugPrint("Not synced before next iter!!");
+            TestWordTopicSync();
         }
     }
     DebugPrint("Before SyncTopicTable()");
     SyncTopicTable();
-    DebugPrint("Before SyncWordTopicTable()");
+    DebugPrint("Before AsyncWordTopicTable()");
     AsyncWordTopicTable();
 }
 
@@ -174,7 +175,7 @@ void GlobalTable::AsyncWordTopicTable(){
         for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
             for (int k = 0; k < num_topics_; k++) {
                 global_word_topic_table_delta_ptr[k] = word_topic_table_delta_[w][k];
-                word_topic_table_[w][k] -= word_topic_table_delta_[w][k];
+//                word_topic_table_[w][k] -= word_topic_table_delta_[w][k];
                 word_topic_table_delta_[w][k] = 0;
             }
         }
@@ -227,7 +228,7 @@ void GlobalTable::AsyncWordTopicTable(){
         DebugPrint("AsyncWordTopicTable() After send ");
 
         word_topic_synced_ = false;
-        MPI_Irecv(word_topic_table_delta_buffer_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
+        MPI_Irecv(*word_topic_table_delta_buffer_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
                   &word_topic_request_);
         DebugPrint("AsyncWordTopicTable() After recv ");
 
@@ -260,7 +261,7 @@ void GlobalTable::SyncWordTopic(){
 };
 
 void GlobalTable::WordTopicMerge() {
-    int *global_word_topic_table_delta_ptr = (int *)word_topic_table_delta_buffer_;
+    int *global_word_topic_table_delta_ptr = *word_topic_table_delta_buffer_;
     for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
         for (int k = 0; k < num_topics_; k++) {
             word_topic_table_[w][k] += global_word_topic_table_delta_ptr[k];

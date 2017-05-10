@@ -41,11 +41,11 @@ void LdaWorker::Run() {
                 int begin = num_docs_ * batch / num_clocks_per_iter_;
                 int end = num_docs_ * (batch + 1) / num_clocks_per_iter_;
 
-//                global_table_.TestWordTopicSync();
 
                 // Loop through each document in the current batch.
                 for (int d = begin; d < end; d++) {
 
+//                    global_table_.TestWordTopicSync();
 
                     for (int i = 0; i < doc_length_[d]; i++) {
                         int word = w[d][i];
@@ -74,7 +74,8 @@ void LdaWorker::Run() {
                     }
                 }
                 global_table_.DebugPrint(": Before Sync in Run()");
-                global_table_.Async();
+//                global_table_.Async();
+                global_table_.Sync();
             }
         }
         if (world_rank_ == MASTER) {
@@ -164,6 +165,7 @@ void LdaWorker::LoadPartial(string dataFile) {
         while (getline(file, line)) {
 //            if (world_rank_ != MASTER)
 //                cout << world_rank_ << ": LoadPartial() " << line << endl;
+//            if (line_num % (world_size_) == world_rank_) {
             if (line_num % (world_size_ - 1) == world_rank_ - 1) {
                 doc_length_[doc] = 1;
                 for (unsigned long i = 0; i < line.length(); i++) {
