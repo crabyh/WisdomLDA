@@ -5,9 +5,12 @@
 #ifndef WISDOMLDA_SPARSE_MODEL_H
 #define WISDOMLDA_SPARSE_MODEL_H
 
+#define TOPIC_WIDTH 8
+#define TOPIC_MASK ((1 << TOPIC_WIDTH) - 1)
+
 #include <iostream>
-#include <vector>
 #include <sstream>
+#include <unordered_map>
 
 #include "mpi.h"
 
@@ -17,7 +20,7 @@ class GlobalTable {
 private:
     int **word_topic_table_;
     int *topic_table_;
-    int **word_topic_table_delta_;
+    unordered_map<int, int> word_topic_table_delta_;
     int **word_topic_table_delta_buffer_;
     int *topic_table_delta_;
     int epoch;
@@ -45,7 +48,7 @@ public:
     void TestWordTopicSync();
     void WordTopicMerge();
     void SyncWordTopic();
-    void AsyncWordTopicTable();
+//    void AsyncWordTopicTable();
 
     // for debugging
     void DebugPrint(const string &s);
@@ -59,11 +62,6 @@ inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, i
     int *word_topic_pools = new int[num_words_ * num_topics_]();
     for (int i = 0; i < num_words_; i++, word_topic_pools += num_topics_) {
         word_topic_table_[i] = word_topic_pools;
-    }
-    word_topic_table_delta_ = new int*[num_words_];
-    int *word_topic_pools_delta = new int[num_words_ * num_topics_]();
-    for (int i = 0; i < num_words_; i++, word_topic_pools_delta += num_topics_) {
-        word_topic_table_delta_[i] = word_topic_pools_delta;
     }
 
     word_topic_table_delta_buffer_ = new int*[num_words_];
@@ -80,7 +78,13 @@ inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, i
 
 inline void GlobalTable::IncWordTopicTable(int word, int topic, int delta) {
     word_topic_table_[word][topic] += delta;
-    word_topic_table_delta_[word][topic] += delta;
+    int key = (word << TOPIC_WIDTH) + topic;
+    if (word_topic_table_delta_.find(key) != word_topic_table_delta_.end()) {
+        word_topic_table_delta_[key] += delta;
+    } else {
+        word_topic_table_delta_[key] = delta;
+    }
+
 }
 
 inline void GlobalTable::IncTopicTable(int topic, int delta) {

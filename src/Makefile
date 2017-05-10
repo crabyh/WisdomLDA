@@ -1,7 +1,7 @@
-ghc: 
-	mpic++ -O3 -std=c++11 -fopenmp -Wall -g -o lda dense_model.cpp lda_worker.cpp main.cpp
+ghc: sparse_model.cpp lda_worker.cpp main.cpp
+	mpic++ -O3 -std=c++11 -fopenmp -Wall -g -o lda sparse_model.cpp lda_worker.cpp main.cpp
 
-latedays: 
+latedays: sparse_model.cpp lda_worker.cpp main.cpp
 	mpic++ -Wl,-rpath,/opt/gcc/4.9.2/lib64 -O3 -std=c++11 -Wno-literal-suffix -fopenmp -Wall -g -o lda dense_model.cpp lda_worker.cpp main.cpp
 
 clean:

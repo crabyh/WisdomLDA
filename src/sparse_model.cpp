@@ -11,7 +11,7 @@
 #define TOPIC_TABLE 10
 #define WORD_TOPIC_TABLE 11
 
-#include "dense_model.h"
+#include "sparse_model.h"
 
 
 void GlobalTable::Sync() {
@@ -33,18 +33,93 @@ void GlobalTable::SyncTopicTable() {
 }
 
 void GlobalTable::SyncWordTopicTable() {
-    int *global_word_topic_table_delta = new int[num_words_ * num_topics_];
-    MPI_Allreduce(*word_topic_table_delta_, global_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, MPI_SUM,
-                  MPI_COMM_WORLD);
-    int *global_word_topic_table_delta_ptr = global_word_topic_table_delta;
-    for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
-        for (int k = 0; k < num_topics_; k++) {
-            word_topic_table_[w][k] = word_topic_table_[w][k] + global_word_topic_table_delta_ptr[k] -
-                                      word_topic_table_delta_[w][k];
-            word_topic_table_delta_[w][k] = 0;
+
+    if (world_rank_ != MASTER) {
+
+        MPI_Request send_reqs;
+        int send_size = (int) word_topic_table_delta_.size() * 2;
+        int *send_buf = new int[send_size];
+        int cur_idx = 0;
+        int sum = 0;
+        for (auto const &item : word_topic_table_delta_) {
+            send_buf[cur_idx] = item.first;
+            send_buf[cur_idx+1] = item.second;
+            word_topic_table_[item.first >> TOPIC_WIDTH][item.first & TOPIC_MASK] -= item.second;
+            sum += item.second;
+            cur_idx += 2;
         }
+        word_topic_table_delta_.clear();
+        MPI_Isend(send_buf, send_size, MPI_INT, MASTER, WORD_TOPIC_TABLE, MPI_COMM_WORLD, &send_reqs);
+
+        MPI_Status probe_status;
+        MPI_Status recv_status;
+        MPI_Probe(MASTER, WORD_TOPIC_TABLE, MPI_COMM_WORLD, &probe_status);
+        int recv_size = 0;
+        MPI_Get_count(&probe_status, MPI_INT, &recv_size);
+        int *recv_buf = new int[recv_size];
+        MPI_Recv(recv_buf, recv_size, MPI_INT, probe_status.MPI_SOURCE, probe_status.MPI_TAG, MPI_COMM_WORLD,
+                 &recv_status);
+        for (int n = 0; n < recv_size; n += 2) {
+            word_topic_table_[recv_buf[n] >> TOPIC_WIDTH][recv_buf[n] & TOPIC_MASK] += recv_buf[n+1];
+//            cout << world_rank_ << ": word_topic_table_[" << (recv_buf[n] >> TOPIC_WIDTH) << "]["
+//                 << (recv_buf[n] & TOPIC_MASK) << "] += " << recv_buf[n+1] << " -> "
+//                 << word_topic_table_[recv_buf[n] >> TOPIC_WIDTH][recv_buf[n] & TOPIC_MASK] << endl;
+        }
+
+        delete[] send_buf;
+        delete[] recv_buf;
+
+    } else {
+
+        unordered_map<int, int> global_word_topic_table_delta;
+
+        for (int i = 1; i < world_size_; i++) {
+            MPI_Status probe_status;
+            MPI_Status recv_status;
+            MPI_Probe(i, WORD_TOPIC_TABLE, MPI_COMM_WORLD, &probe_status);
+            int recv_size = 0;
+            MPI_Get_count(&probe_status, MPI_INT, &recv_size);
+            int *recv_buf = new int[recv_size];
+            MPI_Recv(recv_buf, recv_size, MPI_INT, probe_status.MPI_SOURCE,
+                     probe_status.MPI_TAG, MPI_COMM_WORLD, &recv_status);
+            for (int n = 0; n < recv_size; n += 2) {
+                if (global_word_topic_table_delta.find(recv_buf[n]) != global_word_topic_table_delta.end()) {
+                    global_word_topic_table_delta[recv_buf[n]] += recv_buf[n+1];
+                } else {
+                    global_word_topic_table_delta[recv_buf[n]] = recv_buf[n+1];
+                }
+            }
+            delete[] recv_buf;
+        }
+
+        int send_size = (int) global_word_topic_table_delta.size() * 2;
+        int *send_buf = new int[send_size];
+        int cur_idx = 0;
+        for (auto const &item : global_word_topic_table_delta) {
+            send_buf[cur_idx] = item.first;
+            send_buf[cur_idx+1] = item.second;
+            cur_idx += 2;
+        }
+
+        MPI_Request* send_reqs = new MPI_Request[world_size_];
+        for (int i = 1; i < world_size_; i++) {
+            MPI_Isend(send_buf, send_size, MPI_INT, i, WORD_TOPIC_TABLE, MPI_COMM_WORLD, &send_reqs[i]);
+        }
+
+        for (auto const &item : global_word_topic_table_delta) {
+            word_topic_table_[item.first >> TOPIC_WIDTH][item.first & TOPIC_MASK] += item.second;
+        }
+        global_word_topic_table_delta.clear();
+
+        for (int i = 1; i < world_size_; i++) {
+            MPI_Status status;
+            MPI_Wait(&send_reqs[i], &status);
+        }
+
+        delete[] send_buf;
+
     }
-    delete[] global_word_topic_table_delta;
+
 }
 
 
@@ -58,116 +133,33 @@ void GlobalTable::Async() {
     DebugPrint("Before SyncTopicTable()");
     SyncTopicTable();
     DebugPrint("Before AsyncWordTopicTable()");
-    AsyncWordTopicTable();
+//    AsyncWordTopicTable();
 }
 
-//void GlobalTable::SyncTopicTable() {
-//    int *global_topic_table_delta = new int[num_topics_]();
-//
-//    if (world_rank_ == MASTER) {
-//
-//        for (int k = 0; k < num_topics_; k++) {
-//            global_topic_table_delta[k] = topic_table_delta_[k];
-//            topic_table_[k] -= topic_table_delta_[k];
-//            topic_table_delta_[k] = 0;
-//        }
-//
-//        MPI_Status probe_status;
-//        int *partial_topic_table_delta = new int[num_topics_]();
-//        for (int i = 1; i < world_size_; i++) {
-//            DebugPrint("SyncTopicTable() Fuckkkk" + to_string(i));
-//            MPI_Recv(partial_topic_table_delta, num_topics_, MPI_INT, i, TOPIC_TABLE, MPI_COMM_WORLD, &probe_status);
-//            DebugPrint("SyncTopicTable() Fuckkkk" + to_string(i));
-//            for (int k = 0; k < num_topics_; k++) {
-//                global_topic_table_delta[k] += partial_topic_table_delta[k];
-//            }
-//        }
-//        delete[] partial_topic_table_delta;
-//
-//        MPI_Request* send_reqs = new MPI_Request[world_size_];
-//        for (int i = 1; i < world_size_; i++) {
-//            MPI_Isend(global_topic_table_delta, num_topics_, MPI_INT, i, TOPIC_TABLE, MPI_COMM_WORLD, &send_reqs[i]);
-//        }
-//
-//        for (int k = 0; k < num_topics_; k++) {
-//            topic_table_[k] += global_topic_table_delta[k];
-//        }
-//
-//        for (int i = 1; i < world_size_; i++) {
-//            MPI_Status status;
-//            MPI_Wait(&send_reqs[i], &status);
-//        }
-//        delete[] send_reqs;
-//
-//    } else {
-//
-//        MPI_Request send_req;
-//        DebugPrint("SyncTopicTable() Before send ");
-//
-//        MPI_Isend(topic_table_delta_, num_topics_, MPI_INT, MASTER, TOPIC_TABLE, MPI_COMM_WORLD, &send_req);
-//        DebugPrint("SyncTopicTable() After send ");
-//
-//        MPI_Recv(global_topic_table_delta, num_topics_, MPI_INT, MASTER, TOPIC_TABLE, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-//        for (int k = 0; k < num_topics_; k++) {
-//            topic_table_[k] = topic_table_[k] + global_topic_table_delta[k] - topic_table_delta_[k];
-//            topic_table_delta_[k] = 0;
-//        }
-//
-//    }
-//
-//    DebugPrint("Topic Table After Sync()");
-//    for (int k = 0; k < num_topics_; ++k) {
-//        cout << topic_table_[k] << " ";
-//    }
-//    cout << endl;
-//
-//    delete[] global_topic_table_delta;
-//}
 
-
-//void GlobalTable::SyncWordTopicTable() {
+//void GlobalTable::AsyncWordTopicTable(){
 //    int *global_word_topic_table_delta = new int[num_words_ * num_topics_]();
 //    int *global_word_topic_table_delta_ptr = global_word_topic_table_delta;
 //
-//    int total_elements = num_words_ * num_topics_;
-//
 //    if (world_rank_ == MASTER) {
 //
+//        MPI_Status probe_status;
 //        int *partial_word_topic_table_delta = new int[num_words_ * num_topics_]();
-//        int *partial_word_topic_table_delta_ptr = partial_word_topic_table_delta;
+//        int *partial_word_topic_table_delta_ptr;
 //
 //        for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
 //            for (int k = 0; k < num_topics_; k++) {
 //                global_word_topic_table_delta_ptr[k] = word_topic_table_delta_[w][k];
-//                word_topic_table_[w][k] -= word_topic_table_delta_[w][k];
+////                word_topic_table_[w][k] -= word_topic_table_delta_[w][k];
 //                word_topic_table_delta_[w][k] = 0;
 //            }
 //        }
 //
 //        for (int i = 1; i < world_size_; i++) {
-//
-//            int recv_chunk_total = (total_elements + MPI_SEND_LIMIT - 1) / MPI_SEND_LIMIT;
-//            DebugPrint("SyncWordTopicTable() recv_chunk_total " + to_string(recv_chunk_total));
-//            MPI_Request *recv_reqs = new MPI_Request[recv_chunk_total];
-//            for (int recv_chunk = 0; recv_chunk < recv_chunk_total; recv_chunk++,
-//                    partial_word_topic_table_delta_ptr += MPI_SEND_LIMIT) {
-//                int recv_elements_count = min(MPI_SEND_LIMIT, total_elements - recv_chunk * MPI_SEND_LIMIT);
-//                DebugPrint("recv_chunk " + to_string(recv_chunk) + " count " + to_string(recv_elements_count));
-//                MPI_Irecv(partial_word_topic_table_delta_ptr, recv_elements_count, MPI_INT, i, WORD_TOPIC_TABLE,
-//                          MPI_COMM_WORLD, &recv_reqs[recv_chunk]);
-//            }
-//
-//            for (int recv_chunk = 0; recv_chunk < recv_chunk_total; recv_chunk++) {
-//                DebugPrint("Waiting for chunk " + to_string(recv_chunk));
-//                MPI_Status status;
-//                MPI_Wait(&recv_reqs[i], &status);
-//            }
-//
-//            delete[] recv_reqs;
-//
-////            MPI_Recv(partial_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD,
-////                    &probe_status);
-//            DebugPrint("SyncWordTopicTable() After Recv " + to_string(i));
+//            DebugPrint("AsyncWordTopicTable() Before Recv " + to_string(i));
+//            MPI_Recv(partial_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD,
+//                     &probe_status);
+//            DebugPrint("AsyncWordTopicTable() After Recv " + to_string(i));
 //
 //            global_word_topic_table_delta_ptr = global_word_topic_table_delta;
 //            partial_word_topic_table_delta_ptr = partial_word_topic_table_delta;
@@ -183,8 +175,8 @@ void GlobalTable::Async() {
 //
 //        MPI_Request* send_reqs = new MPI_Request[world_size_];
 //        for (int i = 1; i < world_size_; i++) {
-//            MPI_Isend(global_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, i, WORD_TOPIC_TABLE,
-//                      MPI_COMM_WORLD, &send_reqs[i]);
+//            MPI_Isend(global_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD,
+//                      &send_reqs[i]);
 //        }
 //
 //        global_word_topic_table_delta_ptr = global_word_topic_table_delta;
@@ -203,137 +195,31 @@ void GlobalTable::Async() {
 //        delete[] send_reqs;
 //
 //    } else {
+//        DebugPrint("AsyncWordTopicTable() Before send ");
 //
-//        DebugPrint("SyncWordTopicTable() Before send ");
+//        MPI_Request send_req;
+//        MPI_Isend(*word_topic_table_delta_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
+//                  &send_req);
+//        DebugPrint("AsyncWordTopicTable() After send ");
 //
-//        int send_chunk_total = (total_elements + MPI_SEND_LIMIT - 1) / MPI_SEND_LIMIT;
-//        MPI_Request *send_reqs = new MPI_Request[send_chunk_total];
-//        for (int send_chunk = 0; send_chunk < send_chunk_total; send_chunk++) {
-//            DebugPrint("Offset " + to_string(send_chunk));
-//            int sum = 0;
-//            for (int n = 0; n < min(MPI_SEND_LIMIT, total_elements - send_chunk * MPI_SEND_LIMIT); ++n) {
-//                sum += (*word_topic_table_delta_ + send_chunk * MPI_SEND_LIMIT)[n];
-//            }
-//            DebugPrint(to_string(sum));
-//            MPI_Isend((*word_topic_table_delta_ + send_chunk * MPI_SEND_LIMIT),
-//                      min(MPI_SEND_LIMIT, total_elements - send_chunk * MPI_SEND_LIMIT), MPI_INT, MASTER,
-//                      WORD_TOPIC_TABLE, MPI_COMM_WORLD, &send_reqs[send_chunk]);
-//        }
+//        word_topic_synced_ = false;
+//        MPI_Irecv(*word_topic_table_delta_buffer_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
+//                  &word_topic_request_);
+//        DebugPrint("AsyncWordTopicTable() After recv ");
 //
-////        MPI_Isend(*word_topic_table_delta_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
-////                  &send_req);
+////        SyncWordTopic();
 //
-//        DebugPrint("SyncWordTopicTable() After send ");
-//
-//        for (int send_chunk = 0; send_chunk < send_chunk_total; send_chunk++) {
-//            MPI_Status status;
-//            MPI_Wait(&send_reqs[send_chunk], &status);
-//        }
-//        delete[] send_reqs;
-//
-//        MPI_Recv(global_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, MASTER, WORD_TOPIC_TABLE,
-//                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-//        DebugPrint("SyncWordTopicTable() After recv ");
-//
-//
-//        for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
+//        // Reset word_topic_table_delta_
+//        for (int w = 0; w < num_words_; w++) {
 //            for (int k = 0; k < num_topics_; k++) {
-//                word_topic_table_[w][k] = word_topic_table_[w][k] + global_word_topic_table_delta_ptr[k] -
-//                                          word_topic_table_delta_[w][k];
+//                word_topic_table_[w][k] -= word_topic_table_delta_[w][k];
 //                word_topic_table_delta_[w][k] = 0;
 //            }
 //        }
-//
-//
 //    }
 //
 //    delete[] global_word_topic_table_delta;
 //}
-
-
-void GlobalTable::AsyncWordTopicTable(){
-    int *global_word_topic_table_delta = new int[num_words_ * num_topics_]();
-    int *global_word_topic_table_delta_ptr = global_word_topic_table_delta;
-
-    if (world_rank_ == MASTER) {
-
-        MPI_Status probe_status;
-        int *partial_word_topic_table_delta = new int[num_words_ * num_topics_]();
-        int *partial_word_topic_table_delta_ptr;
-
-        for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
-            for (int k = 0; k < num_topics_; k++) {
-                global_word_topic_table_delta_ptr[k] = word_topic_table_delta_[w][k];
-//                word_topic_table_[w][k] -= word_topic_table_delta_[w][k];
-                word_topic_table_delta_[w][k] = 0;
-            }
-        }
-
-        for (int i = 1; i < world_size_; i++) {
-            DebugPrint("AsyncWordTopicTable() Before Recv " + to_string(i));
-            MPI_Recv(partial_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD,
-                     &probe_status);
-            DebugPrint("AsyncWordTopicTable() After Recv " + to_string(i));
-
-            global_word_topic_table_delta_ptr = global_word_topic_table_delta;
-            partial_word_topic_table_delta_ptr = partial_word_topic_table_delta;
-
-            for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_,
-                                                 partial_word_topic_table_delta_ptr += num_topics_) {
-                for (int k = 0; k < num_topics_; k++) {
-                    global_word_topic_table_delta_ptr[k] += partial_word_topic_table_delta_ptr[k];
-                }
-            }
-
-        }
-
-        MPI_Request* send_reqs = new MPI_Request[world_size_];
-        for (int i = 1; i < world_size_; i++) {
-            MPI_Isend(global_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD,
-                      &send_reqs[i]);
-        }
-
-        global_word_topic_table_delta_ptr = global_word_topic_table_delta;
-        for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
-            for (int k = 0; k < num_topics_; k++) {
-                word_topic_table_[w][k] += global_word_topic_table_delta_ptr[k];
-            }
-        }
-
-        for (int i = 1; i < world_size_; i++) {
-            MPI_Status status;
-            MPI_Wait(&send_reqs[i], &status);
-        }
-
-        delete[] partial_word_topic_table_delta;
-        delete[] send_reqs;
-
-    } else {
-        DebugPrint("AsyncWordTopicTable() Before send ");
-
-        MPI_Request send_req;
-        MPI_Isend(*word_topic_table_delta_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
-                  &send_req);
-        DebugPrint("AsyncWordTopicTable() After send ");
-
-        word_topic_synced_ = false;
-        MPI_Irecv(*word_topic_table_delta_buffer_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
-                  &word_topic_request_);
-        DebugPrint("AsyncWordTopicTable() After recv ");
-
-//        SyncWordTopic();
-
-        // Reset word_topic_table_delta_
-        for (int w = 0; w < num_words_; w++) {
-            for (int k = 0; k < num_topics_; k++) {
-                word_topic_table_[w][k] -= word_topic_table_delta_[w][k];
-                word_topic_table_delta_[w][k] = 0;
-            }
-        }
-    }
-
-    delete[] global_word_topic_table_delta;
-}
 
 void GlobalTable::TestWordTopicSync() {
     if (word_topic_synced_) return;
