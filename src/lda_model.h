@@ -105,7 +105,7 @@ inline int GlobalTable::GetTopicTable(int topic) {
 }
 
 inline void GlobalTable::DebugPrint(const string &s) {
-    cout << world_rank_ << ": " << s << endl;
+//    cout << world_rank_ << ": " << s << endl;
 }
 
 inline void GlobalTable::DebugPrintTable() {
