@@ -19,11 +19,11 @@ Our job is to design and implement a better parallel algorithm that minimizes th
 
 We designed two methods to perform LDA with OpenMP. First, they share some same ideas in the basic skeleton. We treat every core as a worker or master. We separate the total documents evenly to all the workers. Every iteration, the worker performs gibbs sampling on their local copy of the parameter tables and records the local updates. They Synchronize the parameters tables for a certain times every iteration.
 
-1. Synchronized LDA: all the workers and the master synchronized with each other at the checkpoint (after certain documents). When they are synchronizing, they are blocked until all the workers have the most up-to-dated parameter servers. Below is the chart to illustrate this workflow:
+1. Synchronized LDA: All the workers and the master synchronized with each other at the checkpoint (after certain documents). When they are synchronizing, they are blocked until all the workers have the most up-to-dated parameter servers. Below is the chart to illustrate this workflow:
 
-![Synchronized LDA]({{ site.url }}/graph1.png)
+![Synchronized LDA]({{ site.github.repository_url }}/graph1.png)
 
-
+2. Asynchronized LDA: 
 
 
 ## RESULTS
