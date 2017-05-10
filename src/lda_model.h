@@ -14,11 +14,8 @@
 using namespace std;
 
 class GlobalTable {
-private:
-    int **word_topic_table_;
+protected:
     int *topic_table_;
-    int **word_topic_table_delta_;
-    int **word_topic_table_delta_buffer_;
     int *topic_table_delta_;
     int epoch;
     int word_topic_synced_;
@@ -31,73 +28,38 @@ public:
     int num_topics_;
 
 public:
-    GlobalTable(int world_size, int world_rank, int num_words, int num_topics);
+    GlobalTable(int world_size, int world_rank, int num_words, int num_topics) :
+            epoch(0), world_size_(world_size), world_rank_(world_rank), num_words_(num_words), num_topics_(num_topics) {
+        topic_table_ = new int[num_topics_]();
+        topic_table_delta_ = new int[num_topics_]();
 
-    void IncWordTopicTable(int word, int topic, int delta);
+        word_topic_synced_ = 1;
+    }
+
+    virtual void IncWordTopicTable(int word, int topic, int delta) = 0;
     void IncTopicTable(int topic, int delta);
-    int GetWordTopicTable(int word, int topic);
-    double *GetWordTopicTableRows(int column_id);
+    virtual int GetWordTopicTable(int word, int topic) = 0;
+    virtual double *GetWordTopicTableRows(int column_id) = 0;
     int GetTopicTable(int topic);
+    void Exchange();
     void Sync();
     void Async();
     void SyncTopicTable();
-    void SyncWordTopicTable();
+    virtual void SyncWordTopicTable() =0;
     void TestWordTopicSync();
-    void WordTopicMerge();
+    virtual void WordTopicMerge() =0;
     void SyncWordTopic();
-    void AsyncWordTopicTable();
+    virtual void AsyncWordTopicTable() =0;
 
     // for debugging
     void DebugPrint(const string &s);
     void DebugPrintTable();
 };
 
-inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, int num_topics) :
-        world_size_(world_size), world_rank_(world_rank), num_words_(num_words), num_topics_(num_topics) {
-    epoch = 0;
-    word_topic_table_ = new int*[num_words_];
-    int *word_topic_pools = new int[num_words_ * num_topics_]();
-    for (int i = 0; i < num_words_; i++, word_topic_pools += num_topics_) {
-        word_topic_table_[i] = word_topic_pools;
-    }
-    word_topic_table_delta_ = new int*[num_words_];
-    int *word_topic_pools_delta = new int[num_words_ * num_topics_]();
-    for (int i = 0; i < num_words_; i++, word_topic_pools_delta += num_topics_) {
-        word_topic_table_delta_[i] = word_topic_pools_delta;
-    }
-
-    word_topic_table_delta_buffer_ = new int*[num_words_];
-    int *word_topic_pools_buffer_delta = new int[num_words_ * num_topics_]();
-    for (int i = 0; i < num_words_; i++, word_topic_pools_buffer_delta += num_topics_) {
-        word_topic_table_delta_buffer_[i] = word_topic_pools_buffer_delta;
-    }
-
-    topic_table_ = new int[num_topics_]();
-    topic_table_delta_ = new int[num_topics_]();
-
-    word_topic_synced_ = 1;
-}
-
-inline void GlobalTable::IncWordTopicTable(int word, int topic, int delta) {
-    word_topic_table_[word][topic] += delta;
-    word_topic_table_delta_[word][topic] += delta;
-}
 
 inline void GlobalTable::IncTopicTable(int topic, int delta) {
     topic_table_[topic] += delta;
     topic_table_delta_[topic] += delta;
-}
-
-inline int GlobalTable::GetWordTopicTable(int word, int topic) {
-    return word_topic_table_[word][topic];
-}
-
-inline double *GlobalTable::GetWordTopicTableRows(int column_id) {
-    double *rows = new double[num_words_];
-    for (int i = 0; i < num_words_; i++) {
-        rows[i] = (double) word_topic_table_[i][column_id];
-    }
-    return rows;
 }
 
 inline int GlobalTable::GetTopicTable(int topic) {
