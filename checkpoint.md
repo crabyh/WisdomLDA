@@ -27,7 +27,7 @@ Once the baseline was finished, we moved on to data-parallel LDA implementation 
 <!-- Do you still believe you will be able to produce all your deliverables? If not, why? What about the "nice to haves"? In your checkpoint writeup we want a new list of goals that you plan to hit for the Parallelism competition.
 What do you plan to show at the parallelism competition? Will it be a demo? Will it be a graph? -->
 
-Currently we are a bit behind the schedule because the tasks themselves require some ramp time and the job was not well assigned before the framework was built up, but overall the project has been on the right track. We started with the goal of speeding up the sequential version by 100x with intel cluster (100 Xeon Phi processor with 68-core, 256 thread each). However, after went through several papers evaluating cut-edge algorithms performing LDA, we realized that the algorithm turned out not easily to be scaled up. Use this paper as a reference, we decided to set our goal as 4x speedup at an 8 core machine. To achieve this goal, our asynchronized messaging model design is going to refer to some properties of the parameter server. 
+Currently we are a bit behind the schedule because the tasks themselves require some ramp time and the job was not well assigned before the framework was built up, but overall the project has been on the right track. We started with the goal of speeding up the sequential version by 100x with intel cluster (100 Xeon Phi processor with 68-core, 256 thread each). However, after went through several papers evaluating cut-edge algorithms performing LDA, we realized that the algorithm turned out not easily to be scaled up. Use these papers[1][2] as a reference, we decided to set our goal as 4x speedup at an 8 core machine. To achieve this goal, our asynchronized messaging model design is going to refer to some properties of the parameter server. 
 
 
 As for the parallelism competition, we will deliver a library that allows users to quickly conduct topic modeling on specified dataset. Since the program may require particularly long time to train, we plan to present the graphs comparing both training time and convergence rate. 
@@ -40,5 +40,9 @@ One generic issue for such machine learning techniques is that the program may s
 There is a trade-off between speed of the convergence and parallelism of the system. Convergence and parallelism are contradicted in some sense and make it difficult to optimize the performance in terms of the overall running time.
 
 
+## REFERENCE
 
+[1] Newman, David, et al. "Distributed Inference for Latent Dirichlet Allocation." NIPS. Vol. 20. 2007.
+
+[2] Zhang, Chenyi, and Jianling Sun. "Large scale microblog mining using distributed MB-LDA." Proceedings of the 21st International Conference on World Wide Web. ACM, 2012.
 
