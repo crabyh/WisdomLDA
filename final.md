@@ -25,6 +25,7 @@ We designed two methods to perform LDA with OpenMP. First, they share some same 
 
 2. Asynchronized LDA: All the workers and the master synchronized with each other at the checkpoint (after certain documents). However, instead of block waiting for the sync to complete, worker will allocate a buffer for the incoming update while continuing perform gibbs sampling on the next trunk of the documents using the current parameter tables. Below is the chart illustrating this workflow:
 
+![Asynchronized LDA]({{ site.github.proposal_url }}graph2.png)
 
 ## RESULTS
 
