@@ -35,8 +35,8 @@ void LdaWorker::Run() {
         }
         for (int batch = 0; batch < num_clocks_per_iter_; batch++) {
             if (world_rank_ == MASTER) {
-//                global_table_.Async();
-                global_table_.Sync();
+                global_table_.Async();
+//                global_table_.Sync();
             } else {
                 int begin = num_docs_ * batch / num_clocks_per_iter_;
                 int end = num_docs_ * (batch + 1) / num_clocks_per_iter_;
@@ -74,8 +74,8 @@ void LdaWorker::Run() {
                     }
                 }
                 global_table_.DebugPrint(": Before Sync in Run()");
-//                global_table_.Async();
-                global_table_.Sync();
+                global_table_.Async();
+//                global_table_.Sync();
             }
         }
         if (world_rank_ == MASTER) {
@@ -114,39 +114,6 @@ int LdaWorker::SampleMultinomial(double *p, double norm) {
     return topic;
 }
 
-// Should use LoadPartial
-//void LdaWorker::LoadAll(string dataFile) {
-//    w = new int*[num_docs_];
-//    doc_length_ = new int[num_docs_];
-//    string line;
-//    ifstream file (dataFile);
-//    if (file.is_open()) {
-//        int doc = 0;
-//        while (getline(file, line)) {
-//            doc_length_[doc] = 1;
-//            for (unsigned long i = 0; i < line.length(); i++)
-//                if (line[i] == ',') doc_length_[doc] += 1;
-//            int *w_col = new int[doc_length_[doc]];
-//            int index = 0;
-//            unsigned long last_i = 0;
-//            for (unsigned long i = 0; i < line.length(); i++) {
-//                if (line[i] == ',') {
-//                    w_col[index] = (stoi(line.substr(last_i + 1, i - last_i - 1)));
-//                    index += 1;
-//                    last_i = i;
-//                }
-//            }
-//            w_col[index] = (stoi(line.substr(last_i + 1, line.length() - last_i - 1)));
-//            w[doc] = w_col;
-//            doc += 1;
-//        }
-//    }
-//    doc_topic_table_ = new int*[num_docs_];
-//    for (int i = 0; i < num_docs_; i++) {
-//        int *doc_length_col = new int[num_topics_]();
-//        doc_topic_table_[i] = doc_length_col;
-//    }
-//}
 
 void LdaWorker::LoadPartial(string dataFile) {
     w = new int *[num_docs_];
