@@ -35,8 +35,8 @@ void LdaWorker::Run() {
         }
         for (int batch = 0; batch < num_clocks_per_iter_; batch++) {
             if (world_rank_ == MASTER) {
-                global_table_.Async();
-//                global_table_.Sync();
+//                global_table_.Async();
+                global_table_.Sync();
             } else {
                 int begin = num_docs_ * batch / num_clocks_per_iter_;
                 int end = num_docs_ * (batch + 1) / num_clocks_per_iter_;

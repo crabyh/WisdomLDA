@@ -15,6 +15,11 @@ void GlobalTable::Sync() {
 
 
 void GlobalTable::Async() {
+    if (world_rank_ != MASTER) {
+        if (!word_topic_synced_) {
+            SyncWordTopic();
+        }
+    }
     DebugPrint("Before SyncTopicTable()");
     SyncTopicTable();
     DebugPrint("Before SyncWordTopicTable()");
@@ -78,7 +83,7 @@ void GlobalTable::SyncWordTopicTable() {
 
         MPI_Status probe_status;
         int *partial_word_topic_table_delta = new int[num_words_ * num_topics_]();
-
+        int *partial_word_topic_table_delta_ptr;
 
         for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
             for (int k = 0; k < num_topics_; k++) {
@@ -95,7 +100,7 @@ void GlobalTable::SyncWordTopicTable() {
             DebugPrint("SyncWordTopicTable() After Recv " + to_string(i));
 
             global_word_topic_table_delta_ptr = global_word_topic_table_delta;
-            int *partial_word_topic_table_delta_ptr = partial_word_topic_table_delta;
+            partial_word_topic_table_delta_ptr = partial_word_topic_table_delta;
 
             for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_,
                                                  partial_word_topic_table_delta_ptr += num_topics_) {
@@ -148,9 +153,13 @@ void GlobalTable::SyncWordTopicTable() {
                 word_topic_table_delta_[w][k] = 0;
             }
         }
+
+
     }
+
     delete[] global_word_topic_table_delta;
 }
+
 
 void GlobalTable::AsyncWordTopicTable(){
     int *global_word_topic_table_delta = new int[num_words_ * num_topics_]();
@@ -210,9 +219,6 @@ void GlobalTable::AsyncWordTopicTable(){
         delete[] send_reqs;
 
     } else {
-        if (!word_topic_synced_) {
-            SyncWordTopic();
-        }
         DebugPrint("AsyncWordTopicTable() Before send ");
 
         MPI_Request send_req;
