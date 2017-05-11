@@ -72,9 +72,9 @@ int main(int argc, char **argv) {
 
     double time_sol = 0.0;
 
-    std::cout << world_rank << ": Before Barrier!" << std::endl;
+//    std::cout << world_rank << ": Before Barrier!" << std::endl;
     MPI_Barrier(MPI_COMM_WORLD);
-    std::cout << world_rank << ": After Barrier!" << std::endl;
+//    std::cout << world_rank << ": After Barrier!" << std::endl;
 
     double start_time = MPI_Wtime();
     lda_worker.Run();

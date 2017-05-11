@@ -23,6 +23,9 @@ private:
     int epoch;
     int word_topic_synced_;
     MPI_Request word_topic_request_;
+    double marshing_time;
+    double sync_time;
+    struct timeval t1, t2;
 
 public:
     int world_size_;
@@ -76,6 +79,8 @@ inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, i
     topic_table_delta_ = new int[num_topics_]();
 
     word_topic_synced_ = 1;
+    marshing_time = 0;
+    sync_time = 0;
 }
 
 inline void GlobalTable::IncWordTopicTable(int word, int topic, int delta) {
@@ -105,7 +110,7 @@ inline int GlobalTable::GetTopicTable(int topic) {
 }
 
 inline void GlobalTable::DebugPrint(const string &s) {
-//    cout << world_rank_ << ": " << s << endl;
+    cout << world_rank_ << ": " << s << endl;
 }
 
 inline void GlobalTable::DebugPrintTable() {
