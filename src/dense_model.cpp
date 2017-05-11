@@ -56,6 +56,13 @@ void DenseModel::Async() {
     SyncTopicTable();
     DebugPrint("Before AsyncWordTopicTable()");
     AsyncWordTopicTable();
+//    int sum = 0;
+//    for (int i = 0; i < num_words_; i++) {
+//        for (int j = 0; j < num_topics_; j++) {
+//            sum += word_topic_table_[i][j];
+//        }
+//    }
+//    cout << "sum: " << sum << endl;
 }
 
 //void DenseModel::SyncTopicTable() {

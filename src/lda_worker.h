@@ -32,7 +32,7 @@ private:
     double alpha_;
     double beta_;
     int num_iters_;
-    int num_clocks_per_iter_;
+    int num_documents_per_sync;
     int staleness_;
 
     double *log_likelihoods_;

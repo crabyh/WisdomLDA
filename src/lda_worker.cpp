@@ -18,7 +18,7 @@ LdaWorker::LdaWorker(int world_size, int world_rank,
           data_file_(data_file), output_dir_(output_dir),
           num_words_(num_words), num_docs_(num_docs), num_topics_(num_topics),
           alpha_(alpha), beta_(beta),
-          num_iters_(num_iters), num_clocks_per_iter_(num_clocks_per_iter), staleness_(staleness),
+          num_iters_(num_iters), num_documents_per_sync(num_clocks_per_iter), staleness_(staleness),
           global_table_(world_size, world_rank, num_words, num_topics) {
 
 }
@@ -33,14 +33,15 @@ void LdaWorker::Run() {
         if (world_rank_ == MASTER) {
             gettimeofday(&t1, NULL);
         }
-        for (int batch = 0; batch < num_clocks_per_iter_; batch++) {
+        for (int begin = 0; begin < num_docs_; begin += num_documents_per_sync) {
+
             if (world_rank_ == MASTER) {
 //                global_table_.Async();
                 global_table_.Sync();
             } else {
-                int begin = num_docs_ * batch / num_clocks_per_iter_;
-                int end = num_docs_ * (batch + 1) / num_clocks_per_iter_;
+                if (world_rank_ != MASTER) gettimeofday(&t1, NULL);
 
+                int end = min(begin + num_documents_per_sync, num_docs_);
 
                 // Loop through each document in the current batch.
                 for (int d = begin; d < end; d++) {
@@ -74,6 +75,10 @@ void LdaWorker::Run() {
                     }
                 }
                 global_table_.DebugPrint(": Before Sync in Run()");
+                if (world_rank_ != MASTER) {
+                    gettimeofday(&t2, NULL);
+                    total_wall_secs_ += (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;;
+                }
 //                global_table_.Async();
                 global_table_.Sync();
             }
@@ -88,6 +93,8 @@ void LdaWorker::Run() {
             cout << std::setprecision(4) << total_wall_secs_ << "\t";
             cout << std::setprecision(6) << log_likelihoods_[iter] << endl;
         }
+        else
+            cout << std::setprecision(4) << "Gibbs Sampling\t" << total_wall_secs_ << endl;
     }
     delete[] p;
 //    if (world_rank_ == MASTER) {
@@ -115,39 +122,6 @@ int LdaWorker::SampleMultinomial(double *p, double norm) {
     return topic;
 }
 
-// Should use LoadPartial
-//void LdaWorker::LoadAll(string dataFile) {
-//    w = new int*[num_docs_];
-//    doc_length_ = new int[num_docs_];
-//    string line;
-//    ifstream file (dataFile);
-//    if (file.is_open()) {
-//        int doc = 0;
-//        while (getline(file, line)) {
-//            doc_length_[doc] = 1;
-//            for (unsigned long i = 0; i < line.length(); i++)
-//                if (line[i] == ',') doc_length_[doc] += 1;
-//            int *w_col = new int[doc_length_[doc]];
-//            int index = 0;
-//            unsigned long last_i = 0;
-//            for (unsigned long i = 0; i < line.length(); i++) {
-//                if (line[i] == ',') {
-//                    w_col[index] = (stoi(line.substr(last_i + 1, i - last_i - 1)));
-//                    index += 1;
-//                    last_i = i;
-//                }
-//            }
-//            w_col[index] = (stoi(line.substr(last_i + 1, line.length() - last_i - 1)));
-//            w[doc] = w_col;
-//            doc += 1;
-//        }
-//    }
-//    doc_topic_table_ = new int*[num_docs_];
-//    for (int i = 0; i < num_docs_; i++) {
-//        int *doc_length_col = new int[num_topics_]();
-//        doc_topic_table_[i] = doc_length_col;
-//    }
-//}
 
 void LdaWorker::LoadPartial(string dataFile) {
     w = new int *[num_docs_];
@@ -220,11 +194,9 @@ void LdaWorker::InitTables() {
 }
 
 void LdaWorker::Setup() {
-//    if (world_rank_ == MASTER) {
     log_likelihoods_ = new double[num_iters_];
     wall_secs_ = new double[num_iters_];
     total_wall_secs_ = 0;
-//    }
     global_table_.DebugPrint(": Finished new arrays");
     LoadPartial(data_file_);
     global_table_.DebugPrint(": Finished loading document collection");
