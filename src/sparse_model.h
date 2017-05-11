@@ -6,7 +6,7 @@
 #define WISDOMLDA_SPARSE_MODEL_H
 
 #define TOPIC_WIDTH 8
-#define TOPIC_MASK ((1 << TOPIC_WIDTH) - 1)
+#define TOPIC_MASK 0xff
 
 #include <iostream>
 #include <sstream>
@@ -16,7 +16,7 @@
 
 using namespace std;
 
-class GlobalTable {
+class SparseModel {
 private:
     int **word_topic_table_;
     int *topic_table_;
@@ -34,7 +34,7 @@ public:
     int num_topics_;
 
 public:
-    GlobalTable(int world_size, int world_rank, int num_words, int num_topics);
+    SparseModel(int world_size, int world_rank, int num_words, int num_topics);
 
     void IncWordTopicTable(int word, int topic, int delta);
     void IncTopicTable(int topic, int delta);
@@ -52,10 +52,11 @@ public:
 
     // for debugging
     void DebugPrint(const string &s);
+    void EvaluatePrint(const string &s);
     void DebugPrintTable();
 };
 
-inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, int num_topics) :
+inline SparseModel::SparseModel(int world_size, int world_rank, int num_words, int num_topics) :
         world_size_(world_size), world_rank_(world_rank), num_words_(num_words), num_topics_(num_topics) {
     epoch = 0;
     word_topic_table_ = new int*[num_words_];
@@ -76,27 +77,21 @@ inline GlobalTable::GlobalTable(int world_size, int world_rank, int num_words, i
     word_topic_synced_ = 1;
 }
 
-inline void GlobalTable::IncWordTopicTable(int word, int topic, int delta) {
+inline void SparseModel::IncWordTopicTable(int word, int topic, int delta) {
     word_topic_table_[word][topic] += delta;
-    int key = (word << TOPIC_WIDTH) + topic;
-    if (word_topic_table_delta_.find(key) != word_topic_table_delta_.end()) {
-        word_topic_table_delta_[key] += delta;
-    } else {
-        word_topic_table_delta_[key] = delta;
-    }
-
+    word_topic_table_delta_[(word << TOPIC_WIDTH) | topic] += delta;
 }
 
-inline void GlobalTable::IncTopicTable(int topic, int delta) {
+inline void SparseModel::IncTopicTable(int topic, int delta) {
     topic_table_[topic] += delta;
     topic_table_delta_[topic] += delta;
 }
 
-inline int GlobalTable::GetWordTopicTable(int word, int topic) {
+inline int SparseModel::GetWordTopicTable(int word, int topic) {
     return word_topic_table_[word][topic];
 }
 
-inline double *GlobalTable::GetWordTopicTableRows(int column_id) {
+inline double *SparseModel::GetWordTopicTableRows(int column_id) {
     double *rows = new double[num_words_];
     for (int i = 0; i < num_words_; i++) {
         rows[i] = (double) word_topic_table_[i][column_id];
@@ -104,15 +99,19 @@ inline double *GlobalTable::GetWordTopicTableRows(int column_id) {
     return rows;
 }
 
-inline int GlobalTable::GetTopicTable(int topic) {
+inline int SparseModel::GetTopicTable(int topic) {
     return topic_table_[topic];
 }
 
-inline void GlobalTable::DebugPrint(const string &s) {
+inline void SparseModel::DebugPrint(const string &s) {
 //    cout << world_rank_ << ": " << s << endl;
 }
 
-inline void GlobalTable::DebugPrintTable() {
+inline void SparseModel::EvaluatePrint(const string &s) {
+//    cout << world_rank_ << ": " << s << endl;
+}
+
+inline void SparseModel::DebugPrintTable() {
 //    int sum = 0;
 //    for (int w = 0; w < num_words_; w++) {
 //        for (int k = 0; k < num_topics_; k++) {
@@ -120,14 +119,6 @@ inline void GlobalTable::DebugPrintTable() {
 //        }
 //    }
 //    cout << world_rank_ << ": Sum = " << sum << endl;
-}
-
-template<typename T>
-string ToString(T input) {
-    stringstream ss;
-    ss << input;
-    string str = ss.str();
-    return str;
 }
 
 

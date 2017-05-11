@@ -78,6 +78,7 @@ void LdaWorker::Run() {
                 global_table_.Sync();
             }
         }
+
         if (world_rank_ == MASTER) {
             gettimeofday(&t2, NULL);
             wall_secs_[iter] = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;

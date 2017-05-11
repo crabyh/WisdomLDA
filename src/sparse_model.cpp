@@ -6,7 +6,7 @@
 
 
 #define MASTER 0
-#define MPI_SEND_LIMIT (2 << 20)
+#define MPI_SEND_LIMIT (1 << 20)
 
 #define TOPIC_TABLE 10
 #define WORD_TOPIC_TABLE 11
@@ -14,25 +14,32 @@
 #include "sparse_model.h"
 
 
-void GlobalTable::Sync() {
+void SparseModel::Sync() {
     DebugPrint("Before SyncTopicTable()");
-    SyncTopicTable();
+//    SyncTopicTable();
     DebugPrint("Before SyncWordTopicTable()");
     SyncWordTopicTable();
 }
 
 
-void GlobalTable::SyncTopicTable() {
+void SparseModel::SyncTopicTable() {
     int *global_topic_table_delta = new int[num_topics_];
     MPI_Allreduce(topic_table_delta_, global_topic_table_delta, num_topics_, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     for (int k = 0; k < num_topics_; k++) {
         topic_table_[k] = topic_table_[k] + global_topic_table_delta[k] - topic_table_delta_[k];
         topic_table_delta_[k] = 0;
     }
+
+//    DebugPrint("Topic Table After Sync()");
+//    for (int k = 0; k < num_topics_; ++k) {
+//        cout << topic_table_[k] << " ";
+//    }
+//    cout << endl;
+
     delete[] global_topic_table_delta;
 }
 
-void GlobalTable::SyncWordTopicTable() {
+void SparseModel::SyncWordTopicTable() {
 
     if (world_rank_ != MASTER) {
 
@@ -49,6 +56,7 @@ void GlobalTable::SyncWordTopicTable() {
             cur_idx += 2;
         }
         word_topic_table_delta_.clear();
+        EvaluatePrint("Send buf size = " + to_string(send_size));
         MPI_Isend(send_buf, send_size, MPI_INT, MASTER, WORD_TOPIC_TABLE, MPI_COMM_WORLD, &send_reqs);
 
         MPI_Status probe_status;
@@ -83,11 +91,7 @@ void GlobalTable::SyncWordTopicTable() {
             MPI_Recv(recv_buf, recv_size, MPI_INT, probe_status.MPI_SOURCE,
                      probe_status.MPI_TAG, MPI_COMM_WORLD, &recv_status);
             for (int n = 0; n < recv_size; n += 2) {
-                if (global_word_topic_table_delta.find(recv_buf[n]) != global_word_topic_table_delta.end()) {
-                    global_word_topic_table_delta[recv_buf[n]] += recv_buf[n+1];
-                } else {
-                    global_word_topic_table_delta[recv_buf[n]] = recv_buf[n+1];
-                }
+                global_word_topic_table_delta[recv_buf[n]] += recv_buf[n+1];
             }
             delete[] recv_buf;
         }
@@ -123,7 +127,7 @@ void GlobalTable::SyncWordTopicTable() {
 }
 
 
-void GlobalTable::Async() {
+void SparseModel::Async() {
     if (world_rank_ != MASTER) {
         while (!word_topic_synced_) {
             DebugPrint("Not synced before next iter!!");
@@ -137,7 +141,7 @@ void GlobalTable::Async() {
 }
 
 
-//void GlobalTable::AsyncWordTopicTable(){
+//void SparseModel::AsyncWordTopicTable(){
 //    int *global_word_topic_table_delta = new int[num_words_ * num_topics_]();
 //    int *global_word_topic_table_delta_ptr = global_word_topic_table_delta;
 //
@@ -221,7 +225,7 @@ void GlobalTable::Async() {
 //    delete[] global_word_topic_table_delta;
 //}
 
-void GlobalTable::TestWordTopicSync() {
+void SparseModel::TestWordTopicSync() {
     if (word_topic_synced_) return;
     MPI_Test (&word_topic_request_, &word_topic_synced_, MPI_STATUS_IGNORE);
     if (word_topic_synced_) {
@@ -229,13 +233,13 @@ void GlobalTable::TestWordTopicSync() {
     }
 }
 
-void GlobalTable::SyncWordTopic(){
+void SparseModel::SyncWordTopic(){
     MPI_Wait (&word_topic_request_, MPI_STATUS_IGNORE);
     word_topic_synced_ = 1;
     WordTopicMerge();
 };
 
-void GlobalTable::WordTopicMerge() {
+void SparseModel::WordTopicMerge() {
     int *global_word_topic_table_delta_ptr = *word_topic_table_delta_buffer_;
     for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
         for (int k = 0; k < num_topics_; k++) {

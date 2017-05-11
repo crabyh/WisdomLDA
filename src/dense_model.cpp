@@ -11,7 +11,7 @@
 #include "dense_model.h"
 
 
-void GlobalTable::Sync() {
+void DenseModel::Sync() {
     DebugPrint("Before SyncTopicTable()");
     SyncTopicTable();
     DebugPrint("Before SyncWordTopicTable()");
@@ -19,7 +19,7 @@ void GlobalTable::Sync() {
 }
 
 
-void GlobalTable::SyncTopicTable() {
+void DenseModel::SyncTopicTable() {
     int *global_topic_table_delta = new int[num_topics_];
     MPI_Allreduce(topic_table_delta_, global_topic_table_delta, num_topics_, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     for (int k = 0; k < num_topics_; k++) {
@@ -29,7 +29,7 @@ void GlobalTable::SyncTopicTable() {
     delete[] global_topic_table_delta;
 }
 
-void GlobalTable::SyncWordTopicTable() {
+void DenseModel::SyncWordTopicTable() {
     int *global_word_topic_table_delta = new int[num_words_ * num_topics_];
     MPI_Allreduce(*word_topic_table_delta_, global_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
@@ -45,7 +45,7 @@ void GlobalTable::SyncWordTopicTable() {
 }
 
 
-void GlobalTable::Async() {
+void DenseModel::Async() {
     if (world_rank_ != MASTER) {
         while (!word_topic_synced_) {
             DebugPrint("Not synced before next iter!!");
@@ -58,7 +58,7 @@ void GlobalTable::Async() {
     AsyncWordTopicTable();
 }
 
-//void GlobalTable::SyncTopicTable() {
+//void DenseModel::SyncTopicTable() {
 //    int *global_topic_table_delta = new int[num_topics_]();
 //
 //    if (world_rank_ == MASTER) {
@@ -122,7 +122,7 @@ void GlobalTable::Async() {
 //}
 
 
-//void GlobalTable::SyncWordTopicTable() {
+//void DenseModel::SyncWordTopicTable() {
 //    int *global_word_topic_table_delta = new int[num_words_ * num_topics_]();
 //    int *global_word_topic_table_delta_ptr = global_word_topic_table_delta;
 //
@@ -248,7 +248,7 @@ void GlobalTable::Async() {
 //}
 
 
-void GlobalTable::AsyncWordTopicTable(){
+void DenseModel::AsyncWordTopicTable(){
     int *global_word_topic_table_delta = new int[num_words_ * num_topics_]();
     int *global_word_topic_table_delta_ptr = global_word_topic_table_delta;
 
@@ -332,7 +332,7 @@ void GlobalTable::AsyncWordTopicTable(){
     delete[] global_word_topic_table_delta;
 }
 
-void GlobalTable::TestWordTopicSync() {
+void DenseModel::TestWordTopicSync() {
     if (word_topic_synced_) return;
     MPI_Test (&word_topic_request_, &word_topic_synced_, MPI_STATUS_IGNORE);
     if (word_topic_synced_) {
@@ -340,13 +340,13 @@ void GlobalTable::TestWordTopicSync() {
     }
 }
 
-void GlobalTable::SyncWordTopic(){
+void DenseModel::SyncWordTopic(){
     MPI_Wait (&word_topic_request_, MPI_STATUS_IGNORE);
     word_topic_synced_ = 1;
     WordTopicMerge();
 };
 
-void GlobalTable::WordTopicMerge() {
+void DenseModel::WordTopicMerge() {
     int *global_word_topic_table_delta_ptr = *word_topic_table_delta_buffer_;
     for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
         for (int k = 0; k < num_topics_; k++) {

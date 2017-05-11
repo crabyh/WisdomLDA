@@ -11,7 +11,8 @@
 #include <vector>
 #include <unordered_map>
 #include <math.h>
-//#include "dense_model.h"
+
+#include "dense_model.h"
 #include "sparse_model.h"
 
 #define MASTER 0
@@ -43,7 +44,7 @@ private:
     int **w;
     int **z;
 
-    GlobalTable global_table_;
+    SparseModel global_table_;
 
 public:
     void Setup();
