@@ -9,24 +9,33 @@
 #define WORD_TOPIC_TABLE 11
 
 #include "dense_model.h"
+#include <sys/time.h>
 
 
 void DenseModel::Sync() {
     DebugPrint("Before SyncTopicTable()");
+
     SyncTopicTable();
-    DebugPrint("Before SyncWordTopicTable()");
+//    DebugPrint("Before SyncWordTopicTable()");
     SyncWordTopicTable();
+    gettimeofday(&t2, NULL);
+    sync_time += (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
+    if (sync_time > 10 && world_rank_ != MASTER)
+        DebugPrint("Communication time: " + to_string(sync_time));
 }
 
 
 void DenseModel::SyncTopicTable() {
     int *global_topic_table_delta = new int[num_topics_];
     MPI_Allreduce(topic_table_delta_, global_topic_table_delta, num_topics_, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    gettimeofday(&t1, NULL);
     for (int k = 0; k < num_topics_; k++) {
         topic_table_[k] = topic_table_[k] + global_topic_table_delta[k] - topic_table_delta_[k];
         topic_table_delta_[k] = 0;
     }
     delete[] global_topic_table_delta;
+    gettimeofday(&t2, NULL);
+    marshing_time += (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
 }
 
 void DenseModel::SyncWordTopicTable() {
@@ -34,6 +43,7 @@ void DenseModel::SyncWordTopicTable() {
     MPI_Allreduce(*word_topic_table_delta_, global_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, MPI_SUM,
                   MPI_COMM_WORLD);
     int *global_word_topic_table_delta_ptr = global_word_topic_table_delta;
+    gettimeofday(&t1, NULL);
     for (int w = 0; w < num_words_; w++, global_word_topic_table_delta_ptr += num_topics_) {
         for (int k = 0; k < num_topics_; k++) {
             word_topic_table_[w][k] = word_topic_table_[w][k] + global_word_topic_table_delta_ptr[k] -
@@ -42,19 +52,23 @@ void DenseModel::SyncWordTopicTable() {
         }
     }
     delete[] global_word_topic_table_delta;
+    gettimeofday(&t2, NULL);
+    marshing_time += (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
+    if (marshing_time > 10)
+        DebugPrint("Marshing time: " + to_string(sync_time));
 }
 
 
 void DenseModel::Async() {
     if (world_rank_ != MASTER) {
         while (!word_topic_synced_) {
-            DebugPrint("Not synced before next iter!!");
+//            DebugPrint("Not synced before next iter!!");
             TestWordTopicSync();
         }
     }
-    DebugPrint("Before SyncTopicTable()");
+//    DebugPrint("Before SyncTopicTable()");
     SyncTopicTable();
-    DebugPrint("Before AsyncWordTopicTable()");
+//    DebugPrint("Before AsyncWordTopicTable()");
     AsyncWordTopicTable();
 //    int sum = 0;
 //    for (int i = 0; i < num_words_; i++) {
@@ -274,10 +288,10 @@ void DenseModel::AsyncWordTopicTable(){
         }
 
         for (int i = 1; i < world_size_; i++) {
-            DebugPrint("AsyncWordTopicTable() Before Recv " + to_string(i));
+//            DebugPrint("AsyncWordTopicTable() Before Recv " + to_string(i));
             MPI_Recv(partial_word_topic_table_delta, num_words_ * num_topics_, MPI_INT, i, epoch, MPI_COMM_WORLD,
                      &probe_status);
-            DebugPrint("AsyncWordTopicTable() After Recv " + to_string(i));
+//            DebugPrint("AsyncWordTopicTable() After Recv " + to_string(i));
 
             global_word_topic_table_delta_ptr = global_word_topic_table_delta;
             partial_word_topic_table_delta_ptr = partial_word_topic_table_delta;
@@ -313,17 +327,17 @@ void DenseModel::AsyncWordTopicTable(){
         delete[] send_reqs;
 
     } else {
-        DebugPrint("AsyncWordTopicTable() Before send ");
+//        DebugPrint("AsyncWordTopicTable() Before send ");
 
         MPI_Request send_req;
         MPI_Isend(*word_topic_table_delta_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
                   &send_req);
-        DebugPrint("AsyncWordTopicTable() After send ");
+//        DebugPrint("AsyncWordTopicTable() After send ");
 
         word_topic_synced_ = false;
         MPI_Irecv(*word_topic_table_delta_buffer_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
                   &word_topic_request_);
-        DebugPrint("AsyncWordTopicTable() After recv ");
+//        DebugPrint("AsyncWordTopicTable() After recv ");
 
 //        SyncWordTopic();
 

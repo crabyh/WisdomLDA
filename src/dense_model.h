@@ -23,6 +23,9 @@ private:
     int epoch;
     int word_topic_synced_;
     MPI_Request word_topic_request_;
+    double marshing_time;
+    double sync_time;
+    struct timeval t1, t2;
 
 public:
     int world_size_;
@@ -76,6 +79,8 @@ inline DenseModel::DenseModel(int world_size, int world_rank, int num_words, int
     topic_table_delta_ = new int[num_topics_]();
 
     word_topic_synced_ = 1;
+    marshing_time = 0;
+    sync_time = 0;
 }
 
 inline void DenseModel::IncWordTopicTable(int word, int topic, int delta) {

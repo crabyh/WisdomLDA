@@ -25,7 +25,7 @@ LdaWorker::LdaWorker(int world_size, int world_rank,
 
 void LdaWorker::Run() {
 
-    global_table_.DebugPrint("Run()");
+//    global_table_.DebugPrint("Run()");
     struct timeval t1, t2;
     double *p = new double[num_topics_];
 
@@ -51,7 +51,6 @@ void LdaWorker::Run() {
                     for (int i = 0; i < doc_length_[d]; i++) {
                         int word = w[d][i];
                         int topic = z[d][i];
-//                        global_table_.DebugPrint(": word " + ToString(word) + " Topic: " + ToString(topic));
                         doc_topic_table_[d][topic] -= 1;
                         global_table_.IncWordTopicTable(word, topic, -1);
                         global_table_.IncTopicTable(topic, -1);
@@ -74,7 +73,7 @@ void LdaWorker::Run() {
                         global_table_.IncTopicTable(new_topic, 1);
                     }
                 }
-                global_table_.DebugPrint(": Before Sync in Run()");
+//                global_table_.DebugPrint(": Before Sync in Run()");
                 if (world_rank_ != MASTER) {
                     gettimeofday(&t2, NULL);
                     total_wall_secs_ += (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;;
@@ -97,15 +96,6 @@ void LdaWorker::Run() {
             cout << std::setprecision(4) << "Gibbs Sampling\t" << total_wall_secs_ << endl;
     }
     delete[] p;
-//    if (world_rank_ == MASTER) {
-//        ofstream file(output_dir_ + "/likelihood.csv");
-//        for (int i = 0; i < num_iters_; i++) {
-//            string s = ToString(i + 1) + "," + ToString(wall_secs_[i]) + "," +
-//                       ToString(log_likelihoods_[i]) + "\n";
-//            file.write(s.c_str(), s.size());
-//        }
-//        file.close();
-//    }
 }
 
 int LdaWorker::SampleMultinomial(double *p, double norm) {
@@ -176,7 +166,7 @@ void LdaWorker::LoadPartial(string dataFile) {
 }
 
 void LdaWorker::InitTables() {
-    global_table_.DebugPrint(": InitTables()");
+//    global_table_.DebugPrint(": InitTables()");
     z = new int *[num_docs_];
     for (int d = 0; d < num_docs_; d++) {
         z[d] = new int[doc_length_[d]];
@@ -189,7 +179,7 @@ void LdaWorker::InitTables() {
             global_table_.IncTopicTable(topic, 1);
         }
     }
-    global_table_.DebugPrint(": Before Sync()");
+//    global_table_.DebugPrint(": Before Sync()");
     global_table_.Sync();
 }
 
@@ -197,11 +187,11 @@ void LdaWorker::Setup() {
     log_likelihoods_ = new double[num_iters_];
     wall_secs_ = new double[num_iters_];
     total_wall_secs_ = 0;
-    global_table_.DebugPrint(": Finished new arrays");
+//    global_table_.DebugPrint(": Finished new arrays");
     LoadPartial(data_file_);
-    global_table_.DebugPrint(": Finished loading document collection");
+//    global_table_.DebugPrint(": Finished loading document collection");
     InitTables();
-    global_table_.DebugPrint(": Finished initializing table");
+//    global_table_.DebugPrint(": Finished initializing table");
 }
 
 
