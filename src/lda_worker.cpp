@@ -18,7 +18,7 @@ LdaWorker::LdaWorker(int world_size, int world_rank,
           data_file_(data_file), output_dir_(output_dir),
           num_words_(num_words), num_docs_(num_docs), num_topics_(num_topics),
           alpha_(alpha), beta_(beta),
-          num_iters_(num_iters), num_clocks_per_iter_(num_clocks_per_iter), staleness_(staleness),
+          num_iters_(num_iters), num_documents_per_sync(num_clocks_per_iter), staleness_(staleness),
           global_table_(world_size, world_rank, num_words, num_topics) {
 
 }
@@ -33,14 +33,15 @@ void LdaWorker::Run() {
         if (world_rank_ == MASTER) {
             gettimeofday(&t1, NULL);
         }
-        for (int batch = 0; batch < num_clocks_per_iter_; batch++) {
-            if (world_rank_ == MASTER) {
-                global_table_.Async();
-//                global_table_.Sync();
-            } else {
-                int begin = num_docs_ * batch / num_clocks_per_iter_;
-                int end = num_docs_ * (batch + 1) / num_clocks_per_iter_;
+        for (int begin = 0; begin < num_docs_; begin += num_documents_per_sync) {
 
+            if (world_rank_ == MASTER) {
+//                global_table_.Async();
+                global_table_.Sync();
+            } else {
+                if (world_rank_ != MASTER) gettimeofday(&t1, NULL);
+
+                int end = min(begin + num_documents_per_sync, num_docs_);
 
                 // Loop through each document in the current batch.
                 for (int d = begin; d < end; d++) {
@@ -74,8 +75,12 @@ void LdaWorker::Run() {
                     }
                 }
                 global_table_.DebugPrint(": Before Sync in Run()");
-                global_table_.Async();
-//                global_table_.Sync();
+                if (world_rank_ != MASTER) {
+                    gettimeofday(&t2, NULL);
+                    total_wall_secs_ += (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;;
+                }
+//                global_table_.Async();
+                global_table_.Sync();
             }
         }
         if (world_rank_ == MASTER) {
@@ -87,6 +92,8 @@ void LdaWorker::Run() {
             cout << std::setprecision(4) << total_wall_secs_ << "\t";
             cout << std::setprecision(6) << log_likelihoods_[iter] << endl;
         }
+        else
+            cout << std::setprecision(4) << "Gibbs Sampling\t" << total_wall_secs_ << endl;
     }
     delete[] p;
 //    if (world_rank_ == MASTER) {
@@ -186,11 +193,9 @@ void LdaWorker::InitTables() {
 }
 
 void LdaWorker::Setup() {
-//    if (world_rank_ == MASTER) {
     log_likelihoods_ = new double[num_iters_];
     wall_secs_ = new double[num_iters_];
     total_wall_secs_ = 0;
-//    }
     global_table_.DebugPrint(": Finished new arrays");
     LoadPartial(data_file_);
     global_table_.DebugPrint(": Finished loading document collection");

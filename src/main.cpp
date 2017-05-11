@@ -42,12 +42,13 @@ int main(int argc, char **argv) {
 //    int num_docs = atoi(argv[4]) / world_size + ((atoi(argv[4]) % world_size) > world_rank ? 1 : 0);
     // Set num_docs equals to number of documents belongs to that worker.
     int num_docs = atoi(argv[4]) / (world_size - 1) + ((atoi(argv[4]) % (world_size - 1)) > (world_rank + 1) ? 1 : 0);
-    if (world_rank == MASTER) num_docs = 0;
+//    if (world_rank == MASTER) num_docs = 0;
+//    int num_docs = world_rank == MASTER ? 0: atoi(argv[4]);
     int num_topics = atoi(argv[5]);
     double alpha = atof(argv[6]);
     double beta = atof(argv[7]);
     int num_iters = atoi(argv[8]);
-    int num_clocks_per_iter = atoi(argv[9]);
+    int num_documents_per_sync = atoi(argv[9]);
     int staleness = atoi(argv[10]);
 
     if (world_rank == MASTER) {
@@ -56,7 +57,7 @@ int main(int argc, char **argv) {
 
     LdaWorker lda_worker(world_size, world_rank, data_file, output_dir,
                          num_words, num_docs, num_topics, alpha, beta,
-                         num_iters, num_clocks_per_iter, staleness);
+                         num_iters, num_documents_per_sync, staleness);
 
     if (world_rank == MASTER) {
         std::cout << "Number of processes = " << world_size << std::endl;
