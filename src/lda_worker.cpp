@@ -94,11 +94,10 @@ void LdaWorker::Run() {
             total_wall_secs_ += wall_secs_[iter];
             log_likelihoods_[iter] = global_doc_likelihood + GetWordLogLikelihood();
 //                cout << std::setprecision(2) << "Iteration time: " << wall_secs_[iter] << endl;
-            cout << std::setprecision(4) << total_wall_secs_ << "\t";
-            cout << std::setprecision(6) << log_likelihoods_[iter] << endl;
-        }
-        else if (iter == num_iters_ - 1) {
-            cout << std::setprecision(4) << "Gibbs Sampling\t" << total_wall_secs_ << endl;
+            cout << std::setprecision(2) << std::fixed << total_wall_secs_ << "\t";
+            cout << std::setprecision(6) << std::scientific << log_likelihoods_[iter] << endl;
+        } else if (iter == num_iters_ - 1) {
+            cout << std::setprecision(2) << std::fixed << "Gibbs Sampling\t" << total_wall_secs_ << endl;
         }
     }
     delete[] p;
@@ -134,9 +133,6 @@ void LdaWorker::LoadPartial(string dataFile) {
         int doc = 0;
         cout << world_rank_ << ": num_docs_ " << num_docs_ << endl;
         while (getline(file, line)) {
-//            if (world_rank_ != MASTER)
-//                cout << world_rank_ << ": LoadPartial() " << line << endl;
-//            if (line_num % (world_size_) == world_rank_) {
             if (line_num % (world_size_ - 1) == world_rank_ - 1) {
                 doc_length_[doc] = 1;
                 for (unsigned long i = 0; i < line.length(); i++) {

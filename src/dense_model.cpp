@@ -3,10 +3,6 @@
 //
 
 #define MASTER 0
-#define MPI_SEND_LIMIT (2 << 20)
-
-#define TOPIC_TABLE 10
-#define WORD_TOPIC_TABLE 11
 
 #define TOPIC_TABLE_TAG 3
 #define WORD_TOPIC_TABLE_TAG 3
@@ -35,24 +31,12 @@ void DenseModel::SyncTopicTable() {
     gettimeofday(&t1, NULL);
     if (world_rank_ == MASTER) {
         for (int k = 0; k < num_topics_; k++) {
-//            cout << topic_table_[k] << "|";
-//            cout << global_topic_table[k] << "|";
             topic_table_[k] = global_topic_table_[k] - (world_size_ - 1) * topic_table_[k];
-//            cout << topic_table_[k] << " ";
         }
-//        cout << endl;
     }
     gettimeofday(&t2, NULL);
     marshing_time += (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
     MPI_Bcast(topic_table_, num_topics_, MPI_INT, MASTER, MPI_COMM_WORLD);
-//    MPI_Barrier(MPI_COMM_WORLD);
-//    if (world_rank_ != MASTER) {
-//        cout << world_rank_ << ": ";
-//        for (int k = 0; k < num_topics_; k++) {
-//            cout << topic_table_[k] << " ";
-//        }
-//        cout << endl;
-//    }
 }
 
 void DenseModel::SyncWordTopicTable() {
@@ -70,7 +54,6 @@ void DenseModel::SyncWordTopicTable() {
     MPI_Bcast(*word_topic_table_, num_words_ * num_topics_, MPI_INT, MASTER, MPI_COMM_WORLD);
     gettimeofday(&t2, NULL);
     marshing_time += (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
-
 //    if (marshing_time > 2)
 //        EvaluatePrint("Communicate time: " + to_string(sync_time));
 //    MPI_Barrier(MPI_COMM_WORLD);
