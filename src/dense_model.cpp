@@ -174,7 +174,7 @@ void DenseModel::AsynSynTables(){
     MPI_Wait (&word_topic_request_, MPI_STATUS_IGNORE);
     word_topic_synced_ = true;
     WordTopicMerge();
-};
+}
 
 void DenseModel::WordTopicMerge() {
     DebugPrint("WordTopicMerge ");

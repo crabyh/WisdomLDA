@@ -10,7 +10,7 @@ MAX_ALLOWED_NODES=15
 TOTAL_PROCESSORS_PER_NODE=24
 
 # 4 minute time limit.
-WALLTIME=1
+WALLTIME=4
 
 # Ensure 2 arguments for nodes and processors per node.
 if [ $# -ne 2 ]; then
