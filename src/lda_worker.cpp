@@ -92,8 +92,9 @@ void LdaWorker::Run() {
             cout << std::setprecision(4) << total_wall_secs_ << "\t";
             cout << std::setprecision(6) << log_likelihoods_[iter] << endl;
         }
-        else
+        else if (iter == num_iters_ - 1) {
             cout << std::setprecision(4) << "Gibbs Sampling\t" << total_wall_secs_ << endl;
+        }g
     }
     delete[] p;
 }

@@ -44,7 +44,7 @@ private:
     int **w;
     int **z;
 
-    SparseModel global_table_;
+    DenseModel global_table_;
 
 public:
     void Setup();

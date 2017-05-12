@@ -5,6 +5,8 @@
 #ifndef WISDOMLDA_DENSE_MODEL_H
 #define WISDOMLDA_DENSE_MODEL_H
 
+#define MASTER 0
+
 #include <iostream>
 #include <vector>
 #include <sstream>
@@ -17,9 +19,11 @@ class DenseModel {
 private:
     int **word_topic_table_;
     int *topic_table_;
-    int **word_topic_table_delta_;
+//    int **word_topic_table_delta_;
     int **word_topic_table_delta_buffer_;
-    int *topic_table_delta_;
+//    int *topic_table_delta_;
+    int *global_topic_table_;
+    int *global_word_topic_table_;
     int epoch;
     int word_topic_synced_;
     MPI_Request word_topic_request_;
@@ -42,15 +46,16 @@ public:
     double *GetWordTopicTableRows(int column_id);
     int GetTopicTable(int topic);
     void Sync();
-    void Async();
+//    void Async();
     void SyncTopicTable();
     void SyncWordTopicTable();
     void TestWordTopicSync();
     void WordTopicMerge();
     void SyncWordTopic();
-    void AsyncWordTopicTable();
+//    void AsyncWordTopicTable();
 
     // for debugging
+    void EvaluatePrint(const string &s);
     void DebugPrint(const string &s);
     void DebugPrintTable();
 };
@@ -63,11 +68,12 @@ inline DenseModel::DenseModel(int world_size, int world_rank, int num_words, int
     for (int i = 0; i < num_words_; i++, word_topic_pools += num_topics_) {
         word_topic_table_[i] = word_topic_pools;
     }
-    word_topic_table_delta_ = new int*[num_words_];
-    int *word_topic_pools_delta = new int[num_words_ * num_topics_]();
-    for (int i = 0; i < num_words_; i++, word_topic_pools_delta += num_topics_) {
-        word_topic_table_delta_[i] = word_topic_pools_delta;
-    }
+
+//    word_topic_table_delta_ = new int*[num_words_];
+//    int *word_topic_pools_delta = new int[num_words_ * num_topics_]();
+//    for (int i = 0; i < num_words_; i++, word_topic_pools_delta += num_topics_) {
+//        word_topic_table_delta_[i] = word_topic_pools_delta;
+//    }
 
     word_topic_table_delta_buffer_ = new int*[num_words_];
     int *word_topic_pools_buffer_delta = new int[num_words_ * num_topics_]();
@@ -76,7 +82,12 @@ inline DenseModel::DenseModel(int world_size, int world_rank, int num_words, int
     }
 
     topic_table_ = new int[num_topics_]();
-    topic_table_delta_ = new int[num_topics_]();
+//    topic_table_delta_ = new int[num_topics_]();
+
+    if (world_rank_ == MASTER) {
+        global_topic_table_ = new int[num_topics];
+        global_word_topic_table_ = new int [num_words_ * num_topics];
+    }
 
     word_topic_synced_ = 1;
     marshing_time = 0;
@@ -85,12 +96,12 @@ inline DenseModel::DenseModel(int world_size, int world_rank, int num_words, int
 
 inline void DenseModel::IncWordTopicTable(int word, int topic, int delta) {
     word_topic_table_[word][topic] += delta;
-    word_topic_table_delta_[word][topic] += delta;
+//    word_topic_table_delta_[word][topic] += delta;
 }
 
 inline void DenseModel::IncTopicTable(int topic, int delta) {
     topic_table_[topic] += delta;
-    topic_table_delta_[topic] += delta;
+//    topic_table_delta_[topic] += delta;
 }
 
 inline int DenseModel::GetWordTopicTable(int word, int topic) {
@@ -111,6 +122,10 @@ inline int DenseModel::GetTopicTable(int topic) {
 
 inline void DenseModel::DebugPrint(const string &s) {
 //    cout << world_rank_ << ": " << s << endl;
+}
+
+inline void DenseModel::EvaluatePrint(const string &s) {
+    cout << world_rank_ << ": " << s << endl;
 }
 
 inline void DenseModel::DebugPrintTable() {
