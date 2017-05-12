@@ -124,64 +124,13 @@ void DenseModel::Async(){
         DebugPrint("AsyncWordTopicTable() Before send ");
 
         MPI_Send(topic_table_delta_, num_topics_, MPI_INT, MASTER, TOPIC_TABLE_TAG, MPI_COMM_WORLD);
-
-        for (int k = 0; k < num_topics_; k++)
-            topic_table_delta_[k] = 0;
-        topic_synced_ = false;
-
-        MPI_Recv(topic_table_, num_topics_, MPI_INT, MASTER, TOPIC_TABLE_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);//, &topic_request_);
-
+        MPI_Recv(topic_table_, num_topics_, MPI_INT, MASTER, TOPIC_TABLE_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Send(*word_topic_table_delta_, num_words_ * num_topics_, MPI_INT, MASTER, WORD_TOPIC_TABLE_TAG,
                   MPI_COMM_WORLD);
-        DebugPrint("AsyncWordTopicTable() After send ");
-
-        for (int w = 0; w < num_words_; w++) {
-            for (int k = 0; k < num_topics_; k++) {
-                word_topic_table_delta_[w][k] = 0;
-            }
-        }
-        word_topic_synced_ = false;
         MPI_Recv(*word_topic_table_, num_words_ * num_topics_, MPI_INT, MASTER, WORD_TOPIC_TABLE_TAG,
-                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);//, &word_topic_request_);
-        DebugPrint("AsyncWordTopicTable() After recv ");
-
-//        AsynSynTables();
-
-    }
-}
-
-void DenseModel::TestAsyncSync() {
-    if (!topic_synced_) {
-        MPI_Test(&topic_request_, &topic_synced_, MPI_STATUS_IGNORE);
-        if (topic_synced_) {
-            for (int k = 0; k < num_topics_; k++)
-                topic_table_[k] = topic_table_buffer_[k];
-        }
-    }
-    if (!word_topic_synced_) {
-        MPI_Test(&word_topic_request_, &word_topic_synced_, MPI_STATUS_IGNORE);
-        if (word_topic_synced_) {
-            WordTopicMerge();
-        }
-    }
-}
-
-void DenseModel::AsynSynTables(){
-    MPI_Wait (&topic_request_, MPI_STATUS_IGNORE);
-    topic_synced_ = true;
-    for (int k = 0; k < num_topics_; k++)
-        topic_table_[k] = topic_table_buffer_[k];
-    MPI_Wait (&word_topic_request_, MPI_STATUS_IGNORE);
-    word_topic_synced_ = true;
-    WordTopicMerge();
-};
-
-void DenseModel::WordTopicMerge() {
-    DebugPrint("WordTopicMerge ");
-    for (int w = 0; w < num_words_; w++) {
-        for (int k = 0; k < num_topics_; k++) {
-            word_topic_table_[w][k] = word_topic_table_buffer_[w][k];
-        }
+                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);//, &word_topic_request_);
+        memset(topic_table_delta_, 0, num_topics_ * sizeof(int));
+        memset(*word_topic_table_delta_, 0, num_words_ * num_topics_ * sizeof(int));
     }
 }
 
