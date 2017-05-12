@@ -28,6 +28,8 @@ void LdaWorker::Run() {
 //    global_table_.DebugPrint("Run()");
     struct timeval t1, t2;
     double *p = new double[num_topics_];
+    double local_doc_likelihood;
+    double global_doc_likelihood;
 
     for (int iter = 0; iter < num_iters_; iter++) {
         if (world_rank_ == MASTER) {
@@ -78,23 +80,26 @@ void LdaWorker::Run() {
                     gettimeofday(&t2, NULL);
                     total_wall_secs_ += (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;;
                 }
-//                global_table_.Async();
+//                global_table_.Asygitnc();
                 global_table_.Sync();
             }
         }
+
+        local_doc_likelihood = (world_rank_ == MASTER) ? 0.0 : GetDocLogLikelihood();
+        MPI_Reduce(&local_doc_likelihood, &global_doc_likelihood, 1, MPI_DOUBLE, MPI_SUM, MASTER, MPI_COMM_WORLD);
 
         if (world_rank_ == MASTER) {
             gettimeofday(&t2, NULL);
             wall_secs_[iter] = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;
             total_wall_secs_ += wall_secs_[iter];
-            log_likelihoods_[iter] = GetLogLikelihood();
+            log_likelihoods_[iter] = global_doc_likelihood + GetWordLogLikelihood();
 //                cout << std::setprecision(2) << "Iteration time: " << wall_secs_[iter] << endl;
             cout << std::setprecision(4) << total_wall_secs_ << "\t";
             cout << std::setprecision(6) << log_likelihoods_[iter] << endl;
         }
         else if (iter == num_iters_ - 1) {
             cout << std::setprecision(4) << "Gibbs Sampling\t" << total_wall_secs_ << endl;
-        }g
+        }
     }
     delete[] p;
 }
@@ -218,7 +223,7 @@ double *LdaWorker::DocTopicTableCols(int rowId) {
     return cols;
 }
 
-double LdaWorker::GetLogLikelihood() {
+double LdaWorker::GetWordLogLikelihood() {
     double lik = 0.0;
     for (int k = 0; k < num_topics_; k++) {
         double *temp = global_table_.GetWordTopicTableRows(k);
@@ -229,14 +234,19 @@ double LdaWorker::GetLogLikelihood() {
         lik -= LogDirichlet(beta_, num_words_);
         delete[] temp;
     }
-//    for (int d = 0; d < num_docs_; d++) {
-//        double *temp = DocTopicTableCols(d);
-//        for (int k = 0; k < num_topics_; k++) {
-//            temp[k] += alpha_;
-//        }
-//        lik += LogDirichlet(temp, num_topics_);
-//        lik -= LogDirichlet(alpha_, num_topics_);
-//        delete[] temp;
-//    }
+    return lik;
+}
+
+double LdaWorker::GetDocLogLikelihood() {
+    double lik = 0.0;
+    for (int d = 0; d < num_docs_; d++) {
+        double *temp = DocTopicTableCols(d);
+        for (int k = 0; k < num_topics_; k++) {
+            temp[k] += alpha_;
+        }
+        lik += LogDirichlet(temp, num_topics_);
+        lik -= LogDirichlet(alpha_, num_topics_);
+        delete[] temp;
+    }
     return lik;
 }

@@ -64,7 +64,8 @@ private:
     double LogDirichlet(double *alpha, int length);
     double LogDirichlet(double alpha, int k);
     double *DocTopicTableCols(int rowId);
-    double GetLogLikelihood();
+    double GetWordLogLikelihood();
+    double GetDocLogLikelihood();
     int SampleMultinomial(double *p, double norm);
 
 };
