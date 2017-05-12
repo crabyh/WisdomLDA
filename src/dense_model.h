@@ -19,19 +19,14 @@ class DenseModel {
 private:
     int *topic_table_;
     int *topic_table_delta_;
-    int *topic_table_buffer_;
     int **word_topic_table_;
     int **word_topic_table_delta_;
     int **word_topic_table_buffer_;
     int *global_topic_table_;
     int *global_word_topic_table_;
     int epoch;
-    int word_topic_synced_;
-    int topic_synced_;
     int *partial_topic_table_;
     int **partial_word_topic_table_;
-    MPI_Request word_topic_request_;
-    MPI_Request topic_request_;
     MPI_Request request;
     double marshing_time;
     double sync_time;
@@ -56,10 +51,6 @@ public:
     void Async();
     void SyncTopicTable();
     void SyncWordTopicTable();
-    void TestAsyncSync();
-    void WordTopicMerge();
-    void AsynSynTables();
-    void AsyncWordTopicTable();
 
     // for debugging
     void EvaluatePrint(const string &s);
@@ -90,7 +81,6 @@ inline DenseModel::DenseModel(int world_size, int world_rank, int num_words, int
 
     topic_table_ = new int[num_topics_]();
     if (async_) topic_table_delta_ = new int[num_topics_]();
-    if (async_) topic_table_buffer_ = new int[num_topics_]();
 
     if (world_rank_ == MASTER) {
         global_topic_table_ = new int[num_topics_];
@@ -104,8 +94,6 @@ inline DenseModel::DenseModel(int world_size, int world_rank, int num_words, int
         partial_word_topic_table_[i] = partial_word_topic_pools;
     }
 
-    word_topic_synced_ = 1;
-    topic_synced_ = 1;
     marshing_time = 0;
     sync_time = 0;
 }
