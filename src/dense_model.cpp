@@ -5,7 +5,7 @@
 #define MASTER 0
 
 #define TOPIC_TABLE_TAG 3
-#define WORD_TOPIC_TABLE_TAG 3
+#define WORD_TOPIC_TABLE_TAG 4
 
 #include "dense_model.h"
 #include <sys/time.h>
@@ -112,7 +112,7 @@ void DenseModel::Async(){
                     }
                 }
 
-                MPI_Send(*partial_word_topic_table_, num_words_ * num_topics_, MPI_INT, status.MPI_SOURCE,
+                MPI_Send(*word_topic_table_, num_words_ * num_topics_, MPI_INT, status.MPI_SOURCE,
                          WORD_TOPIC_TABLE_TAG, MPI_COMM_WORLD);
 
                 DebugPrint("AsyncWordTopicTable() Done");

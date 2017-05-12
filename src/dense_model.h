@@ -28,8 +28,8 @@ private:
     int epoch;
     int word_topic_synced_;
     int topic_synced_;
-    int **partial_word_topic_table_;
     int *partial_topic_table_;
+    int **partial_word_topic_table_;
     MPI_Request word_topic_request_;
     MPI_Request topic_request_;
     MPI_Request request;
@@ -93,11 +93,11 @@ inline DenseModel::DenseModel(int world_size, int world_rank, int num_words, int
     if (async_) topic_table_buffer_ = new int[num_topics_]();
 
     if (world_rank_ == MASTER) {
-        global_topic_table_ = new int[num_topics];
-        global_word_topic_table_ = new int [num_words_ * num_topics_];
+        global_topic_table_ = new int[num_topics_];
+        global_word_topic_table_ = new int [num_words_ * num_topics_]();
     }
 
-    partial_topic_table_ = new int[num_topics];
+    partial_topic_table_ = new int[num_topics_]();
     partial_word_topic_table_ = new int*[num_words_];
     int *partial_word_topic_pools = new int[num_words_ * num_topics_]();
     for (int i = 0; i < num_words_; i++, partial_word_topic_pools += num_topics_) {
