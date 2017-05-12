@@ -27,6 +27,7 @@ private:
     int word_topic_synced_;
     MPI_Request word_topic_request_;
 
+
 public:
     int world_size_;
     int world_rank_;

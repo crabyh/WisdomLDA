@@ -207,7 +207,7 @@ void SparseModel::Async() {
 //        DebugPrint("AsyncWordTopicTable() After send ");
 //
 //        word_topic_synced_ = false;
-//        MPI_Irecv(*word_topic_table_delta_buffer_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
+//        MPI_Irecv(*word_topic_table_buffer_, num_words_ * num_topics_, MPI_INT, MASTER, epoch, MPI_COMM_WORLD,
 //                  &word_topic_request_);
 //        DebugPrint("AsyncWordTopicTable() After recv ");
 //
