@@ -60,18 +60,26 @@ If your project involved many iterations of optimization, please describe this p
 If you started with an existing piece of code, please mention it (and where it came from) here.
 -->
 
-### Technolies Used
+### Technologies Used
+
+*MPI:* Message Passing Interface is a standardized and portable message-passing system designed by a group of researchers from academia and industry to function on a wide variety of parallel computing architectures. The standard defines the syntax and semantics of a core of library routines useful to a wide range of users writing portable message-passing programs in C, C++, and Fortran.  
 
 ### Problem Mapping
 
+First, we map a worker or master to a process. A worker is mapped to a process who does the real work in the LDA algorithm we talked above -- Gibbs Sampling; A master is also mapped to a process to coordinate the communication amongst workers, maintains the per-word topic assignment and topic parameter in the up chart as well as calculate the log-likelyhood after each iteration to evaluate the convergence of the algorithm.  Since the process can be assigned to the same machine or different machine and so as MPI, our algorithm can be easily distributed to multiple machines with minor or no modification. Second, we separate the total documents randomly to all the workers. In each iteration, the worker performs gibbs sampling on their local copy of the parameter tables and records the updates. They Synchronize these local parameters tables with the master every certain time.
+
+
 ### Approximation Algorithm
+
+The algorithm has strict-sequential dependency for every step of the Gibbs Sampling. However, due to the size of the table space and the characteristic of the algorithm, there is a very low chance of conflict. And more importantly, the conflict of the updates may not impact the correctness of the algorithm. Because the sampling itself is a random process, staleness of the parameters only leads to slower convergence. This effect has even trial influence when there are large topic number (e.g. 1000), so we decide to make it hard for our algorithm and limit our experiments to 20 topics.
+
 
 ### Proposed Method
 
-We designed two methods to perform LDA with OpenMP. First, they share some same ideas in the basic skeleton. We treat every core as a worker or master. We separate the total documents evenly to all the workers. Every iteration, the worker performs gibbs sampling on their local copy of the parameter tables (specifically, the per-word topic assignment and topic parameter in the up chart) and records the local updates. They Synchronize the parameters tables for a certain times every iteration.
+We adopted the java sequential version of the LDA code from course 10605 homework 7 _Gibbs Sampling LDA using a Parameter Server_.
 
 #### Synchronized LDA
-All the workers and the master synchronized with each other at the checkpoint (after certain documents). When they are synchronizing, they are blocked until all the workers have the most up-to-dated parameter tables. Below is the chart illustrating this workflow:
+All the workers and the master synchronized with each other at the checkpoint (after certain documents). When they are synchronizing, all the workers are blocked until all of them have the most up-to-dated parameter tables. Below is the chart illustrating this workflow:
 
 ![Synchronized LDA]({{ site.github.proposal_url }}graph1.png)
 
@@ -81,8 +89,16 @@ All the workers and the master synchronized with each other at the checkpoint (a
 ![Asynchronized LDA]({{ site.github.proposal_url }}graph2.png)
 
 ### Speed-up Tricks
+1. All reduce in the synchronized version.
+2. Using OpenMP in the Gibbs Sampling part to use the available sources. (it is turned off while running on the GHC machine)
 
-### Unsuccessfull Trials (A lot of!!!) and Reasons
+### Trials (A lot of!!!) and Analysis
+1. Instead of transferring the raw word topic delta tables every time. We uses some sparse matrix representation to compress the delta table, which is intended to reduce the communication overhead. However, due to the density of the word topic table varies a lot for different datasets and parameters(especially topic number K), this trick works well for larger topic number while is not so helpful in our experiment scenario (K=20).
+
+2. We tried using a delta table to communicate with workers and master, i.e. workers send their delta table since last synchronization to the master and master merges all the delta tables of the workers and send the merged(global) one back to all the workers. The advantages of this approach is the delta table can be compressed to reduce the message size for sparse delta parameters tables. However, it need an extra iteration of the word topic table to apply the global update to the local parameters table when the worker receive the global delta table.
+
+3. We've also tried using a asynchronized way to handle the receiving global update table for the workers. The original intention for this approach is to hide the latency of the synchronization. I.e. instead of block waiting for the master to process the merge and send the global table back, worker can still process the Gibbs Sampling with its current parameter table. But the price we pay for this is we need another piece of memory to store the incoming global tables and has to check if the incoming tables have been received regularly. Again, this methods should provide better performance for larger word topic table (larger K and vocabulary size) since the communication time is longer and worth to be hidden, but has trivial impact on our current settings. 
+ 
 
 
 ## RESULTS AND DISCUSSION
@@ -134,3 +150,6 @@ Equal work was performed by both project members.
 [4] Yu, H. F., Hsieh, C. J., Yun, H., Vishwanathan, S. V. N., & Dhillon, I. S. (2015, May). A scalable asynchronous distributed algorithm for topic modeling. _In Proceedings of the 24th International Conference on World Wide Web (pp. 1340-1350)_. ACM.
 
 [5] Chen, J., Li, K., Zhu, J., & Chen, W. (2016). WarpLDA: a cache efficient O (1) algorithm for latent dirichlet allocation. _Proceedings of the VLDB Endowment, 9_(10), 744-755.
+
+
+https://en.wikipedia.org/wiki/Message_Passing_Interface
