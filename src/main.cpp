@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
     // Check arguments
-    if (argc != 11) {
+    if (argc != 12) {
         if (world_rank == MASTER) {
             print_usage();
         }
@@ -50,6 +50,7 @@ int main(int argc, char **argv) {
     int num_iters = atoi(argv[8]);
     int num_documents_per_sync = atoi(argv[9]);
     int staleness = atoi(argv[10]);
+    int async = atoi(argv[11]);
 
     if (world_rank == MASTER) {
         std::cout << num_docs << std::endl;
@@ -57,7 +58,7 @@ int main(int argc, char **argv) {
 
     LdaWorker lda_worker(world_size, world_rank, data_file, output_dir,
                          num_words, num_docs, num_topics, alpha, beta,
-                         num_iters, num_documents_per_sync, staleness);
+                         num_iters, num_documents_per_sync, staleness, async);
 
     if (world_rank == MASTER) {
         std::cout << "Number of processes = " << world_size << std::endl;

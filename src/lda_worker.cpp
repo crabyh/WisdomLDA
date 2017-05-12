@@ -13,13 +13,13 @@ LdaWorker::LdaWorker(int world_size, int world_rank,
                      const string &data_file, const string &output_dir,
                      int num_words, int num_docs, int num_topics,
                      double alpha, double beta,
-                     int num_iters, int num_clocks_per_iter, int staleness)
+                     int num_iters, int num_clocks_per_iter, int staleness, int async)
         : world_size_(world_size), world_rank_(world_rank),
           data_file_(data_file), output_dir_(output_dir),
           num_words_(num_words), num_docs_(num_docs), num_topics_(num_topics),
-          alpha_(alpha), beta_(beta),
-          num_iters_(num_iters), num_documents_per_sync(num_clocks_per_iter), staleness_(staleness),
-          global_table_(world_size, world_rank, num_words, num_topics) {
+          alpha_(alpha), beta_(beta), num_iters_(num_iters),
+          num_documents_per_sync(num_clocks_per_iter), staleness_(staleness), async_(async),
+          global_table_(world_size, world_rank, num_words, num_topics, async) {
 
 }
 
@@ -38,8 +38,8 @@ void LdaWorker::Run() {
         for (int begin = 0; begin < num_docs_; begin += num_documents_per_sync) {
 
             if (world_rank_ == MASTER) {
-//                global_table_.Async();
-                global_table_.Sync();
+                if (async_) global_table_.Async();
+                else global_table_.Sync();
             } else {
                 if (world_rank_ != MASTER) gettimeofday(&t1, NULL);
 
@@ -80,8 +80,8 @@ void LdaWorker::Run() {
                     gettimeofday(&t2, NULL);
                     total_wall_secs_ += (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0;;
                 }
-//                global_table_.Asygitnc();
-                global_table_.Sync();
+                if (async_) global_table_.Async();
+                else global_table_.Sync();
             }
         }
 
@@ -186,7 +186,10 @@ void LdaWorker::InitTables() {
         }
     }
 //    global_table_.DebugPrint(": Before Sync()");
-    global_table_.Sync();
+    if (async_)
+        global_table_.Async();
+    else
+        global_table_.Sync();
 }
 
 void LdaWorker::Setup() {

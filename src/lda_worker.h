@@ -34,6 +34,7 @@ private:
     int num_iters_;
     int num_documents_per_sync;
     int staleness_;
+    int async_;
 
     double *log_likelihoods_;
     double *wall_secs_;
@@ -54,10 +55,9 @@ public:
               const string &data_file, const string &output_dir,
               int num_words, int num_docs, int num_topics,
               double alpha, double beta, int num_iters,
-              int num_clocks_per_iter, int staleness);
+              int num_clocks_per_iter, int staleness, int async);
 
 private:
-    void LoadAll(string dataFile);
     void LoadPartial(string dataFile);
     void InitTables();
 
