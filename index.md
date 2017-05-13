@@ -177,7 +177,7 @@ This trick hopefully works well for larger topic number (K >= 1000). However, la
 
 #### Non-blocking Communication
 
-We've also tried using an asynchronized way to handle the receiving global update table for the workers. The original intention for this approach is to hide the latency of the synchronization. I.e. instead of block waiting for the master to process the merge and send the global table back, worker can still process the Gibbs Sampling with its current parameter table. But the price we pay for this is we need another piece of memory to store the incoming global tables and has to check if the incoming tables have been received regularly. Again, this methods should provide better performance for larger word topic table (larger K and vocabulary size) since the communication time is longer and worth to be hidden, but has trivial impact on our current settings. 
+We also attempted to completely eliminate the blocking window for any forms of synchronization when receiving parameter update tables from each worker. In another word, we expect that workers could immediately return without waiting for the master's response. The original intention for this approach is to hide the latency of the long synchronization that requires every worker to participate. I.e. instead of block waiting for the master to process the merge and send the global table back, worker can still process the Gibbs Sampling with its current parameter table. But the price we pay for this is we need another piece of memory to store the incoming global tables and has to check if the incoming tables have been received regularly. Again, this methods should provide better performance for larger word topic table (larger K and vocabulary size) since the communication time is longer and worth to be hidden, but has trivial impact on our current settings. 
  
 
 ## RESULTS AND DISCUSSION
@@ -234,11 +234,11 @@ The two pictures above display the convergence behavior of our program. Both syn
 
 ![Scalability]({{ site.github.proposal_url }}img/ghc.jpg)
 
-While the accuracy of the program has been proved by previous graphs, we moves on to investigate the scalability of this algorithm. The speed up is calculated relative to the total time of running 100 iterations using 2 processes. We chose to be 2 because the asynchronized version requires an additional master.
+While the accuracy of the program has been proved by previous graphs, we moves on to investigate the scalability of this algorithm. The speed up is calculated relative to the total time of running 100 iterations using 2 processes. We set the baseline as 2 cores because the asynchronized version requires an additional master.
 
-As depicted in the plot, there's a near-linear speedup before the number of processes approachs 8. The possible explanation for this phenomenon is the physical limitation of the GHC machines. As the number of processes surpasses 8, the process starts to make use of hyper-threading, which might spend additional time in switching execution context.
+As depicted in the plot, there's a near-linear speedup before the number of processes approachs 8. The possible explanation for this phenomenon is the physical limitation of the GHC machines. As the number of processes surpasses 8, the process starts to make use of hyper-threading. However, as you can see, the performance of a hyper-threadig core can not achieve the same performance as a complete physical core.
 
-While the program was running, we profiled the system resourse usage by looking at the CPU utilization. It's around 103% when we were running on 8 processes but only 70% when 16 processes were up.
+While the program was running, we profiled the system resourse usage by looking at the CPU utilization. It's around 103% when we were running on 8 processes but only 70%-80% when 16 processes were up.
 
 #### Communication Overhead
 
@@ -268,8 +268,6 @@ Here is the results we have:
 By decreasing times of the synchronization, both the synchronized and asynchronized version can achieve a even better speedup compared to the previous experiment with 16 cores or less, which is a almost linear speedup. Besides, the speedup achieved on AWS on 16 cores compared to that on the GHC machine provided our guess that the hyper-threading is the reason for the unsatisfying performance for 16 workers on GHC machine.
 
 And still, when scaling up, asychronized version outperforms the synchronized one because it requires less synchronization time and their synchronization time will not increases with the increasing of the number of the workers.
-
-### Take Away
 
 ### Future Work
 
