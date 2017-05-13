@@ -7,44 +7,101 @@ We implemented a parallel and distributed version of Latent Dirichlet allocation
 
 
 ## BACKGROUND
-<!--
-What are the key data structures?
-What are the key operations on these data structures?
-What are the algorithm's inputs and outputs?
-What is the part that computationally expensive and could benefit from parallelization?
-Break down the workload. Where are the dependencies in the program? How much parallelism is there? Is it data-parallel? Where is the locality? Is it amenable to SIMD execution?
--->
 
 ### Overview
 
-#### Key Data Structure
+Latent Dirichlet Allocation (LDA) [1] is the most commonly used topic modeling approach. While leveraging billions of documents and millions of topics drastically improves the expressiveness of the model, the massive collections challenge the scalability of the inference algorithm for LDA. 
 
-#### Operations
+Below is the conventions used in this report.
+
+| Symbol |                 Description                |   Range   |
+|:------:|:------------------------------------------:|:---------:|
+|   $N$  |    Corpus size (number of all the terms)   | 15M+      |
+|   $W$  | Vocabulary size (number of distinct terms) | 15K+      |
+|   $K$  |           Number of latent topics          | 10 - 3000 |
+|   $D$  |             Number of documents            | 30K+      |
+|   $T$  |             Number of iterations           | 1K+       |
+
 
 #### Input and Output
 
-### Technical Challenges
-
-#### Workload and Depenencies
-
-#### Locality Analysis
-
-#### Compuationally Expensive Part
-
-### Parallelism Description
-
-
-Latent Dirichlet Allocation (LDA) [1] is the most commonly used topic modeling approach. While leveraging billions of documents and millions of topics drastically improves the expressiveness of the model, the massive collections challenge the scalability of the inference algorithm for LDA. Below is the graphs providing a very brief idea about how this works[2]:
+The brief idea of Collapsed Gibbs sampling (CGS), known as the solver for LDA, is shown in the graphs [2] as follows :
 
 ![Synchronized LDA]({{ site.github.proposal_url }}graph3.png)
 
+This unsupervised generative algorithm starts off by taking a collection of documents as input, in which each document is represented as a stream of word tokens. The output is a word-topic distribution table and a document-topic distribution table that could be used to predict the topic of a given document.
 
-Collapesed Gibbs sampling (CGS), known as the solver for LDA, requires a word account table to be held during each iteration. This dependency on preceding data restricts the parallelism of LDA.
+#### Key Data Structure
 
-The first attempt to parallel this method by Newman, et al. [3] essentially partitions the data collections across multiple workers and has each worker process its local partition. A bulk synchronization on the global word table is executed after every worker finishes its own job in each iteration. As work imbalance is common in such task, the slowest worker leads to the idleness of others which lowers the overall CPU utilization. 
+The data structure involved here are fairly straightforward:
 
-Our job is to design and implement a better parallel algorithm that minimizes the work dependency and communication overhead amongst different workers that eventually achieves good speedups against the number of cores.  
+- Document-topic distribution table: a two-dimensional array of size $D \times K$
+- Document-word-topic assignment table: a two-dimensional array of size $D \times W$
+- Word-topic distribution table: a two-dimensional array of size $W \times K$
+- Topic distribution table: a one-dimensional array of size $K$ 
 
+According to the common range of each parameter, the topic distribution table is trivial to store. It's the document-topic distribution and the document-word-topic assignment table, as well as the word-topic distribution table the real killers to traverse and to communicate with. The upper bound of $W$ is limited by the Zipf's Law in English languages. However, $D$ could reach a much higher value, especially in large-scale data analysis.
+
+#### Operations
+
+The algorithm essentially iterates over all the word occurrences in all the documents and updates the word-topic, document-topic and topic count tables in the meanwhile. The pseudocode is as follows:
+
+~~~python
+for d in document collection:
+    for w in d:
+        sample t ~ multinomial(1/K)
+        stored t to document-word-topic assignment table
+        increment corresponding entries of t in the word-topic, document-topic and topic count tables 
+while not converge and t <= T:
+    for d in document collection:
+        for w in document:
+            get t from the document-word-topic assignment table
+            decrement corresponding entries of t in the word-topic, document-topic and topic count tables 
+            calculate posterior p over topic
+            sample t' ~ multinomial(p)
+            increment corresponding entries of t' in the word-topic, document-topic and topic count tables 
+~~~
+
+### Technical Challenges
+
+The largest challenge is that Gibbs sampling by definition is a strictly sequential algorithm in that each update depends on previous updates. In another word, the topic assignment of word w in document d cannot be performed concurrently with that of word w' in document d'. 
+
+#### Workload and Dependencies
+
+As we noticed that the topic assignment of a word depends more on the topic of other words in the same documents ($n_{d,k}$) than those elsewhere in the corpus (word-topic distribution $n_{k,w}$ and topic distribution $n_k$) because these probabilities, as calculated following, only change slowly.
+
+$p(z = k|\cdot) = \frac{n_{k,w}+\beta}{n_k+\beta{W}} (n_{d,k}+\alpha)$ 
+
+Thus, it's possible to release the strict dependency and approximate this sampling process by randomly assigning documents to $p$ processors, then have each processor performed local sampling process and merge updates after a period of time. Newman, et al [3] have already investigated the effects of deferred update, and they found it will net correctness of the Gibbs sampling, but only results in slightly slower convergence.
+
+![Synchronized LDA]({{ site.github.proposal_url }}ad-lda.jpg)
+
+#### Locality Analysis
+
+Identifying locality is crucial in a parallel program. However, the randomicity of Gibbs sampling prevents us from utilizing SIMD operations or any elaborate caching strategies. 
+
+The sampling for a single word w takes $O(K)$ time, but the actual time could not be easily predicted. This divergence in instruction stream results in weak SIMD utilization.
+
+As for data structure access pattern, both word-topic table and document-topic table are accessed row by row. However, the columns inside each row are accessed randomly submit to a multinomial distribution. 
+
+If the vocabulary size is sufficiently greater than the number of processors, the probability that two processors access the same word entry is small, so false sharing is not likely to happen in our case.
+
+#### Compuationally Expensive Part
+
+This algorithm is computationally intensive when $K$ is not too small. For each inner loop, there are 6 loads and stores and $6 + 6 * K + O(K)$ computations. And a single loop will be repeated for $N * T$ times.   
+
+### Parallelism Description
+
+In this project, we leveraged the data-parallel model to partition the document collection into p subsets and had them sent to p workers. A worker could be either a process on a machine or a machine on a cluster. p workers could perform Gibbs sampling concurrently. Since document-word-topic assignment table and document-topic distribution table are only related to the documents lied on this worker, there's no need to exchange them. Topic distribution table and word-topic distribution table, however, should be considered shared across all the workers and require synchronization.
+
+As a result,the time complexity and space complexity become:
+
+|       |  Sequential  |               Parallel              |
+|:-----:|:------------:|:-----------------------------------:|
+| Space |  $N+K(D+W)$  | $\frac{N+K \times D}{P}+K \times W$ |
+|  Time | $N \times K$ |     $\frac{NK}{P}+K \times W+C$     |
+
+$K \times W+C$ is considered the communication overhead. We tried our best efforts to minimize this overhead while maintaining reasonable converge rate.
 
 ## APPROACH
 
