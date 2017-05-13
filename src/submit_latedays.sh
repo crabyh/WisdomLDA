@@ -1,5 +1,5 @@
 #!/bin/bash
-export PATH=$PATH:/usr/lib64/openmpi/bin
+
 make clean
 make latedays
 
