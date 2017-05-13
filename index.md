@@ -225,7 +225,7 @@ Beside the change of the machine, we also reduced the communication times by inc
 
 Here is the results we have:
 
-![Synchronized LDA]({{ site.github.proposal_url }}aws.jpg)
+![Synchronized LDA]({{ site.github.proposal_url }}img/aws.jpg)
 
 By decreasing times of the synchronization, both the synchronized and asynchronized version can achieve a even better speedup compared to the previous experiment with 16 cores or less, which is a almost linear speedup. Besides, the speedup achieved on AWS on 16 cores compared to that on the GHC machine provided our guess that the hyper-threading is the reason for the unsatisfying performance for 16 workers on GHC machine.
 
