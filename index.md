@@ -172,7 +172,7 @@ The performance is not ideal because of the power low between corpus size and vo
 
 We tried using a delta table to communicate with workers and master, i.e. workers send their delta table since last synchronization to the master and master merges all the delta tables of the workers and send the merged(global) one back to all the workers. The advantages of this approach is the delta table can be compressed to reduce the message size for sparse delta parameters tables. However, it need an extra iteration of the word topic table to apply the global update to the local parameters table when the worker receive the global delta table.
 
-3. We've also tried using a asynchronized way to handle the receiving global update table for the workers. The original intention for this approach is to hide the latency of the synchronization. I.e. instead of block waiting for the master to process the merge and send the global table back, worker can still process the Gibbs Sampling with its current parameter table. But the price we pay for this is we need another piece of memory to store the incoming global tables and has to check if the incoming tables have been received regularly. Again, this methods should provide better performance for larger word topic table (larger K and vocabulary size) since the communication time is longer and worth to be hidden, but has trivial impact on our current settings. 
+We've also tried using a asynchronized way to handle the receiving global update table for the workers. The original intention for this approach is to hide the latency of the synchronization. I.e. instead of block waiting for the master to process the merge and send the global table back, worker can still process the Gibbs Sampling with its current parameter table. But the price we pay for this is we need another piece of memory to store the incoming global tables and has to check if the incoming tables have been received regularly. Again, this methods should provide better performance for larger word topic table (larger K and vocabulary size) since the communication time is longer and worth to be hidden, but has trivial impact on our current settings. 
  
 
 
@@ -205,6 +205,10 @@ We use Log
 ### Experiments: Scalability
 
 ### Experiments: Communication Overhead
+
+### Experiments: AWS
+
+
 
 ### Learns Learned
 
