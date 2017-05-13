@@ -247,6 +247,15 @@ As the reasoning illustrated in the previous section, we decided to try our algo
 
 Beside the change of the machine, we also reduced the communication times by increasing the tunable parameter documents per synchronization from 10000 to 50000. One reason is the observation of the increasing communication time ratio when the number of the workers increases. Another reason is in the previous experiments, our algorithm with multiple workers convergences as well as a single worker (equivalent to sequential LDA). So to make it even more scalable, we can sacrifice some convergence along the way.
 
+Other setthings for Gibbs sampling are lists as follow:
+
+| Parameter | Value |
+|:---------:|:-----:|
+|     K     |   20  |
+|     α     |  0.1  |
+|     β     |  0.1  |
+| checkpoint (synchronize every) | 50,000 |
+
 Here is the results we have:
 
 ![Synchronized LDA]({{ site.github.proposal_url }}img/aws.jpg)
