@@ -209,15 +209,44 @@ We use Log
 
 ### Experimental Setup
 
+The sanity check is against 20news Dataset [6] which includes 18,774 documents with a vocabulary size of 60,056.
+
+The thorough experiments are performed on NYTimes corpus from UCI Machine Learning Repository[7], which consists of 102,660 documents and a vocabulary size of 299,752. The total number of word occurences is around 100,000,000. 
+
+Other setthings for Gibbs sampling are lists as follow:
+
+| Parameter | Value |
+|:---------:|:-----:|
+|     K     |   20  |
+|     α     |  0.1  |
+|     β     |  0.1  |
+| checkpoint (synchronize every) | 10,000 |
+
+_K_ was set to a relatively small number because 1) we want to explore the parallel Gibbs sampling on rather dense word-topic tables; 2) limit training time so that we could produce comprehensive evaluation.
+
+We ran both the synchronized and asynchrnoized version of LDA program using from 2 cores up to 16 cores on GHC machines, which has 8 physical cores (2 hyper-threads) 3.2 GHz Intel Core i7 processors. 
+
+Though the program also supports distribution across machines on the cluster, we chose to do our experiments only using multi-core configurations because the dataset is not large enough to let the speedup from parallelism overwhelm the latency of transferring large buffer using network.
+
 ### Baselines
 
-### Experiments: Convergence
+### Discussion
 
-### Experiments: Scalability
+#### Convergence
 
-### Experiments: Communication Overhead
+![Convergence]({{ site.github.proposal_url }}img/sync-converge.jpg)
 
-### Experiments: AWS
+![Convergence]({{ site.github.proposal_url }}img/async-converge.jpg)
+
+#### Scalability
+
+![Scalability]({{ site.github.proposal_url }}img/ghc.jpg)
+
+#### Communication Overhead
+
+![Communication Overhead]({{ site.github.proposal_url }}img/comm.jpg)
+
+### Additional Experiments: AWS
 
 As the reasoning illustrated in the previous section, we decided to try our algorithm on a larger machine to see if our guess holds. We tried submitted multiple time on the Latedays cluster but unfortunately for some reason our jobs were killed before we can get enough experiment results to do the further analysis. We turned to AWS for help. Spent some money, we launched a m4.16xlarge instance with the Intel Xeon E5-2686 v4 CPU (http://ark.intel.com/products/91317/Intel-Xeon-Processor-E5-2699-v4-55M-Cache-2_20-GHz). AWS provided 64 vCPU for this type of instance.
 
@@ -225,7 +254,7 @@ Beside the change of the machine, we also reduced the communication times by inc
 
 Here is the results we have:
 
-![Synchronized LDA]({{ site.github.proposal_url }}aws.jpg)
+![Synchronized LDA]({{ site.github.proposal_url }}img/aws.jpg)
 
 By decreasing times of the synchronization, both the synchronized and asynchronized version can achieve a even better speedup compared to the previous experiment with 16 cores or less, which is a almost linear speedup. Besides, the speedup achieved on AWS on 16 cores compared to that on the GHC machine provided our guess that the hyper-threading is the reason for the unsatisfying performance for 16 workers on GHC machine.
 
@@ -254,5 +283,9 @@ Equal work was performed by both project members.
 
 [5] Chen, J., Li, K., Zhu, J., & Chen, W. (2016). WarpLDA: a cache efficient O (1) algorithm for latent dirichlet allocation. _Proceedings of the VLDB Endowment, 9_(10), 744-755.
 
+[6] https://www.open-mpi.org/
 
-https://en.wikipedia.org/wiki/Message_Passing_Interface
+[7] http://qwone.com/~jason/20Newsgroups/
+
+[7] https://archive.ics.uci.edu/ml/datasets/bag+of+words
+
