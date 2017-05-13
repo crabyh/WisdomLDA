@@ -1,7 +1,3 @@
-<script type="text/javascript" async
-  src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-MML-AM_CHTML">
-</script>
-
 ## TEAM MEMBERS
 - Ye Qi (yeq@andrew.cmu.edu)
 - Yuhan Mao (yuhanm@andrew.cmu.edu)
@@ -50,7 +46,7 @@ According to the common range of each parameter, the topic distribution table is
 
 The algorithm essentially iterates over all the word occurrences in all the documents and updates the word-topic, document-topic and topic count tables in the meanwhile. The pseudocode is as follows:
 
-~~~python
+~~~
 for d in document collection:
     for w in d:
         sample t ~ multinomial(1/K)
@@ -152,9 +148,9 @@ This is simple algorithm proposed by Newman. In this setting, every worker, alon
 
 The long blocking window limits the scalability of this algorithm because as the number of workers increases, the communication overhead grows significantly. Facing this issue, we proposed an asynchronized version that allows the communication overhead to be hidden. The idea is illustrated in the following plots.
 
-![Synchronized LDA]({{ site.github.proposal_url }}sync.png)
+![Synchronized LDA]({{ site.github.proposal_url }}sync.jpg)
 
-![Synchronized LDA]({{ site.github.proposal_url }}async.png)
+![Synchronized LDA]({{ site.github.proposal_url }}async.jpg)
 
 In the asynchronized LDA. All the workers send their parameter to the master at the checkpoint. Unlike the synchronized one, the worker returns immediately instead of block waiting for the synchronization to complete and allocates a buffer for the incoming update while continuing perform gibbs sampling on the next trunk of the documents using the current parameter tables. Below is the chart illustrating this workflow:
 
