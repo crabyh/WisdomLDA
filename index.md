@@ -145,24 +145,19 @@ The synchronization is carried out at every checkpoint. Our program supports set
 
 #### Synchronized LDA
 
+![Synchronized LDA]({{ site.github.proposal_url }}img/sync.jpg)
+
 This is a simple algorithm proposed by Newman. In this setting, every worker, along with the master synchronizes their parameters at every checkpoint. When they are sending messages, all the workers are blocked until all of them have the most up-to-dated parameter tables back from the master. Below is the chart illustrating this workflow:
 
 ![Synchronized LDA]({{ site.github.proposal_url }}img/graph1.png)
 
 #### Asynchronized LDA
 
-The bottleneck for the synchronized LDA is the synchronization. As the chart showed above, all the workers need to wait the slowest worker to finish its job before stepping into next stage. Because the variation of the machine status and the impossible of distributing work absolute even, some time are wasted. Things become even worse when scaling up, the slowest worker will encumber all the workers.
-The solution here is to perform the communication whenever the worker reach its own check point (e.g. perform Gibbs Sampling on a certain amount of documents) it will communicate with the master to perform its update to the delta table and acquiring the most up-to-dated global table. Compared to synchronized version, we need to do a little bit extra work. i.e. update both parameter tables and delta table. Because the master no longer knows the worker's state or which iteration the worker is current at, the way
-
-![Synchronized LDA]({{ site.github.proposal_url }}img/sync.jpg)
-
 ![Synchronized LDA]({{ site.github.proposal_url }}img/async.jpg)
 
-In the asynchronized LDA. All the workers send their parameter to the master at the checkpoint. Unlike the synchronized one, the worker does not wait for every other to arrive at the checkpoint. 
+The bottleneck for the synchronized LDA is the synchronization. As the chart shown above, all the workers need to wait the slowest worker to finish its job before stepping into next stage. Because the variation of the machine status and the impossible of distributing work absolute even, some time are wasted. Things become even worse when scaling up, the slowest worker will encumber all the workers.
+The solution here is to perform the communication whenever the worker reach its own check point (e.g. perform Gibbs Sampling on a certain amount of documents) it will communicate with the master to perform its update to the delta table and acquiring the most up-to-dated global table. However, because the master no longer knows the worker's state or which iteration the worker is current at, merging parameter tables can only be achieved with delta table (i.e. the change of the parameters table since last communication). Although the up-to-dated global parameter table still can be transferred back as the synchronized version. Thus, compared to synchronized version, workers need to do a little bit extra work -- updating both parameter tables and delta table during the Gibbs Sampling. 
 
-Each worker could send an update request by attaching its local delta table to the master. The master applies the parameter updates received from this worker to the global parameters it currently holds and replies the worker with the latest version. The blocking window is much shorter since the worker does not need to wait for anyone else to arrive at the checkpoint.
-
-returns immediately instead of block waiting for the synchronization to complete and allocates a buffer for the incoming update while continuing to perform Gibbs sampling on the next trunk of the documents using the current parameter tables. Below is the chart illustrating this workflow:
 
 ![Asynchronized LDA]({{ site.github.proposal_url }}img/graph2.png)
 
@@ -253,9 +248,18 @@ We broken the execution time of our problem into communication time and Gibbs sa
 
 ### Additional Experiments: AWS
 
-As the reasoning illustrated in the previous section, we decided to try our algorithm on a larger machine to see if our guess holds. We tried submitted multiple time on the Latedays cluster but unfortunately for some reason our jobs were killed before we can get enough experiment results to do the further analysis. We turned to AWS for help. Spent some money, we launched a m4.16xlarge instance with the Intel Xeon E5-2686 v4 CPU (http://ark.intel.com/products/91317/Intel-Xeon-Processor-E5-2699-v4-55M-Cache-2_20-GHz). AWS provided 64 vCPU for this type of instance.
+As the reasoning illustrated in the previous section, we decided to try our algorithm on a larger machine to see if our guess holds. We tried submitted multiple time on the Latedays cluster but unfortunately for some reason our jobs were killed before we can get enough experiment results to do the further analysis. We turned to AWS for help. Spent some money, we launched a m4.16xlarge instance with the Intel Xeon E5-2686 v4 CPU. AWS provided 64 vCPU for this type of instance.
 
 Beside the change of the machine, we also reduced the communication times by increasing the tunable parameter documents per synchronization from 10000 to 50000. One reason is the observation of the increasing communication time ratio when the number of the workers increases. Another reason is in the previous experiments, our algorithm with multiple workers convergences as well as a single worker (equivalent to sequential LDA). So to make it even more scalable, we can sacrifice some convergence along the way.
+
+Other setthings for Gibbs sampling are lists as follow:
+
+| Parameter | Value |
+|:---------:|:-----:|
+|     K     |   20  |
+|     α     |  0.1  |
+|     β     |  0.1  |
+| checkpoint (synchronize every) | 50,000 |
 
 Here is the results we have:
 
