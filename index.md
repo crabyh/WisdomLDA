@@ -148,22 +148,17 @@ The synchronization is carried out at every checkpoint. Our program supports set
 
 This is a simple algorithm proposed by Newman. In this setting, every worker, along with the master synchronizes their parameters at every checkpoint. When they are sending messages, all the workers are blocked until all of them have the most up-to-dated parameter tables back from the master. Below is the chart illustrating this workflow:
 
+![Synchronized LDA]({{ site.github.proposal_url }}img/sync.jpg)
+
 ![Synchronized LDA]({{ site.github.proposal_url }}img/graph1.png)
 
 #### Asynchronized LDA
 
 The bottleneck for the synchronized LDA is the synchronization. As the chart shown above, all the workers need to wait the slowest worker to finish its job before stepping into next stage. Because the variation of the machine status and the impossible of distributing work absolute even, some time are wasted. Things become even worse when scaling up, the slowest worker will encumber all the workers.
-The solution here is to perform the communication whenever the worker reach its own check point (e.g. perform Gibbs Sampling on a certain amount of documents) it will communicate with the master to perform its update to the delta table and acquiring the most up-to-dated global table. However, because the master no longer knows the worker's state or which iteration the worker is current at, merging parameter tables can only be achieved with delta table (i.e. the change of the parameters table since last communication). Thus, compared to synchronized version, workers need to do a little bit extra work -- updating both parameter tables and delta table during the Gibbs Sampling. 
+The solution here is to perform the communication whenever the worker reach its own check point (e.g. perform Gibbs Sampling on a certain amount of documents) it will communicate with the master to perform its update to the delta table and acquiring the most up-to-dated global table. However, because the master no longer knows the worker's state or which iteration the worker is current at, merging parameter tables can only be achieved with delta table (i.e. the change of the parameters table since last communication). Although the up-to-dated global parameter table still can be transferred back as the synchronized version. Thus, compared to synchronized version, workers need to do a little bit extra work -- updating both parameter tables and delta table during the Gibbs Sampling. 
 
-![Synchronized LDA]({{ site.github.proposal_url }}img/sync.jpg)
 
 ![Synchronized LDA]({{ site.github.proposal_url }}img/async.jpg)
-
-In the asynchronized LDA. All the workers send their parameter to the master at the checkpoint. Unlike the synchronized one, the worker does not wait for every other to arrive at the checkpoint. 
-
-Each worker could send an update request by attaching its local delta table to the master. The master applies the parameter updates received from this worker to the global parameters it currently holds and replies the worker with the latest version. The blocking window is much shorter since the worker does not need to wait for anyone else to arrive at the checkpoint.
-
-returns immediately instead of block waiting for the synchronization to complete and allocates a buffer for the incoming update while continuing to perform Gibbs sampling on the next trunk of the documents using the current parameter tables. Below is the chart illustrating this workflow:
 
 ![Asynchronized LDA]({{ site.github.proposal_url }}img/graph2.png)
 
