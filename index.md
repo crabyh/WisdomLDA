@@ -152,7 +152,8 @@ This is a simple algorithm proposed by Newman. In this setting, every worker, al
 
 #### Asynchronized LDA
 
-The long blocking window limits the scalability of this algorithm because as the number of workers increases, the communication overhead grows significantly. Facing this issue, we proposed an asynchronized version that allows the communication overhead to be hidden. The idea is illustrated in the following plots.
+The bottleneck for the synchronized LDA is the synchronization. As the chart showed above, all the workers need to wait the slowest worker to finish its job before stepping into next stage. Because the variation of the machine status and the impossible of distributing work absolute even, some time are wasted. Things become even worse when scaling up, the slowest worker will encumber all the workers.
+The solution here is to perform the communication whenever the worker reach its own check point (e.g. perform Gibbs Sampling on a certain amount of documents) it will communicate with the master to perform its update to the delta table and acquiring the most up-to-dated global table. Compared to synchronized version, we need to do a little bit extra work. i.e. update both parameter tables and delta table. Because the master no longer knows the worker's state or which iteration the worker is current at, the way
 
 ![Synchronized LDA]({{ site.github.proposal_url }}img/sync.jpg)
 
@@ -207,6 +208,8 @@ We use Log-likelihood to measure the convergence of the LDA. Since the algorithm
 
 ### Experimental Setup
 
+We first acquire 20NEWS dataset and use our program to do LDA on it to ensure the correctness. Then we use Nytimes dataset, a reasonable large data set to do the performance analysis and optimization.
+
 ### Baselines
 
 Our baseline is the sequential version of the LDA program on C++.
@@ -232,9 +235,9 @@ By decreasing times of the synchronization, both the synchronized and asynchroni
 And still, when scaling up, asychronized version outperforms the synchronized one because it requires less synchronization time and their synchronization time will not increases with the increasing of the number of the workers.
 
 
-### Learns Learned
+### Take away
 
-### Room to Improve
+### Future Work
 
 1. From our observation, stale parameters influence influences more on the initiate stage of the Gibbs Sampling because the parameter tables change much more at the beginning and reach to a stable stage afterwords. Thus, a potential optimization would be decrease the communication frequency over the time to achieve a higher speedup.
 
@@ -246,7 +249,7 @@ Equal work was performed by both project members.
 
 Yuhan implemented the first version sequential version of LDA as the baseline. Ye referred to a lot of related papers to figure out the direction and did the configuration of run the MPI on both GHC as well as Latedays. And together, we finished our first version of the synchronized LDA using MPI.
 
-While the first experiment turned not satisfying, we worked together to optimize and debug our code. Ye tried the sparse matrix and Yuhan adjusted the synchronized version to asynchronized one. After the coding part is done ,we ran our experiments, did the analysis and write the report together.
+While the first experiment turned not satisfying, we worked together to optimize and debug our code. Ye tried the sparse matrix and Yuhan adjusted the synchronized version to asynchronized one. After the coding part is done ,we ran our experiments, did the analysis and wrote the report together.
 
 
 ## Reference
