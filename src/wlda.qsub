@@ -7,7 +7,8 @@ HOSTS=`cat $PBS_NODEFILE | sort | uniq | awk -v ppn=$PROCESSORS_PER_NODE '{for(i
 # Calculate number of processors.
 NP=$(( NODES * PROCESSORS_PER_NODE ))
 # Program to run with MPI.
-PROGRAM_NAME="./lda ../data/nytimes.data ../output 102660 299752 20 0.1 0.1 100 10000 0 0"
+# PROGRAM_NAME="./lda ../data/nytimes.data ../output 102660 299752 20 0.1 0.1 100 10000 0 0"
+PROGRAM_NAME="./lda ../data/20news.csv ../output 60056 18774 20 0.1 0.1 100 10000 0 1"
 # Submit the job.  No need to modify this.
 cd $PBS_O_WORKDIR
 mpirun -host $HOSTS -np $NP --mca btl_tcp_if_include em1 $PROGRAM_NAME

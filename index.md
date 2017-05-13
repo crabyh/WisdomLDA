@@ -182,7 +182,9 @@ This trick hopefully works well for larger topic number (K >= 1000). However, la
 
 #### Asynchronized Message Passing  Iterations
 
-We've also tried using an asynchronized way to handle the receiving global update table for the workers. The original intention for this approach is to hide the latency of the synchronization. Instead of block waiting for the master to process the merge and send the global table back, a worker can still proceed the Gibbs Sampling with its current parameter table. But the price we pay for this is we need another piece of memory to store the incoming global tables and has to check if the incoming tables have been received regularly. Again, this method should provide better performance for larger word topic table (larger K and vocabulary size) since the communication time is longer and worth to be hidden, but has a trivial impact on our current settings. 
+#### Non-blocking Communication
+
+We've also tried using an asynchronized way to handle the receiving global update table for the workers. The original intention for this approach is to hide the latency of the synchronization. I.e. instead of block waiting for the master to process the merge and send the global table back, worker can still process the Gibbs Sampling with its current parameter table. But the price we pay for this is we need another piece of memory to store the incoming global tables and has to check if the incoming tables have been received regularly. Again, this methods should provide better performance for larger word topic table (larger K and vocabulary size) since the communication time is longer and worth to be hidden, but has trivial impact on our current settings. 
  
 
 ## RESULTS AND DISCUSSION
@@ -217,6 +219,17 @@ We use Log
 
 ### Experiments: AWS
 
+As the reasoning illustrated in the previous section, we decided to try our algorithm on a larger machine to see if our guess holds. We tried submitted multiple time on the Latedays cluster but unfortunately for some reason our jobs were killed before we can get enough experiment results to do the further analysis. We turned to AWS for help. Spent some money, we launched a m4.16xlarge instance with the Intel Xeon E5-2686 v4 CPU (http://ark.intel.com/products/91317/Intel-Xeon-Processor-E5-2699-v4-55M-Cache-2_20-GHz). AWS provided 64 vCPU for this type of instance.
+
+Beside the change of the machine, we also reduced the communication times by increasing the tunable parameter documents per synchronization from 10000 to 50000. One reason is the observation of the increasing communication time ratio when the number of the workers increases. Another reason is in the previous experiments, our algorithm with multiple workers convergences as well as a single worker (equivalent to sequential LDA). So to make it even more scalable, we can sacrifice some convergence along the way.
+
+Here is the results we have:
+
+![Synchronized LDA]({{ site.github.proposal_url }}aws.jpg)
+
+By decreasing times of the synchronization, both the synchronized and asynchronized version can achieve a even better speedup compared to the previous experiment with 16 cores or less, which is a almost linear speedup. Besides, the speedup achieved on AWS on 16 cores compared to that on the GHC machine provided our guess that the hyper-threading is the reason for the unsatisfying performance for 16 workers on GHC machine.
+
+And still, when scaling up, asychronized version outperforms the synchronized one because it requires less synchronization time and their synchronization time will not increases with the increasing of the number of the workers.
 
 
 ### Learns Learned
