@@ -180,8 +180,6 @@ The performance is not ideal because of the power low between corpus size and vo
 
 This trick hopefully works well for larger topic number (K >= 1000). However, larger topic number requires much more computations during each iteration. The machines available for us cannot be used to conduct long-term training. 
 
-#### Asynchronized Message Passing  Iterations
-
 #### Non-blocking Communication
 
 We've also tried using an asynchronized way to handle the receiving global update table for the workers. The original intention for this approach is to hide the latency of the synchronization. I.e. instead of block waiting for the master to process the merge and send the global table back, worker can still process the Gibbs Sampling with its current parameter table. But the price we pay for this is we need another piece of memory to store the incoming global tables and has to check if the incoming tables have been received regularly. Again, this methods should provide better performance for larger word topic table (larger K and vocabulary size) since the communication time is longer and worth to be hidden, but has trivial impact on our current settings. 
@@ -205,11 +203,13 @@ Was your choice of machine target sound? (If you chose a GPU, would a CPU have b
 
 ### Performance Measurement
 
-We use Log
+We use Log-likelihood to measure the convergence of the LDA. Since the algorithm is exactly the same as the sequential one, and it always converges to the same place, we focus on improving the speed rather than something else(e.g. accuracy at the converge point). 
 
 ### Experimental Setup
 
 ### Baselines
+
+Our baseline is the sequential version of the LDA program on C++.
 
 ### Experiments: Convergence
 
@@ -236,10 +236,17 @@ And still, when scaling up, asychronized version outperforms the synchronized on
 
 ### Room to Improve
 
+1. From our observation, stale parameters influence influences more on the initiate stage of the Gibbs Sampling because the parameter tables change much more at the beginning and reach to a stable stage afterwords. Thus, a potential optimization would be decrease the communication frequency over the time to achieve a higher speedup.
+
+2. For non-blocking communication mentioned in previous section, instead of clear the memory after each communication, it is possible to use the pointer-swap trick to avoid the unnecessary memory operation. Though every worker still need extra space to store a copy of the word topic table.
 
 ## WORK BY EACH STUDENT
 
 Equal work was performed by both project members.
+
+Yuhan implemented the first version sequential version of LDA as the baseline. Ye referred to a lot of related papers to figure out the direction and did the configuration of run the MPI on both GHC as well as Latedays. And together, we finished our first version of the synchronized LDA using MPI.
+
+While the first experiment turned not satisfying, we worked together to optimize and debug our code. Ye tried the sparse matrix and Yuhan adjusted the synchronized version to asynchronized one. After the coding part is done ,we ran our experiments, did the analysis and write the report together.
 
 
 ## Reference
