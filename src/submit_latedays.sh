@@ -1,5 +1,5 @@
 #!/bin/bash
-export PATH=$PATH:/usr/lib64/openmpi/bin
+
 make clean
 make latedays
 
@@ -19,8 +19,8 @@ if [ $# -ne 2 ]; then
 fi
 
 # Get command line arguments.
-NODES=$2
-PROCESSORS_PER_NODE=$8
+NODES=$1
+PROCESSORS_PER_NODE=$2
 
 # Validate arguments.
 if [ $NODES -le 0 ] || [ $NODES -gt $MAX_ALLOWED_NODES ]; then
