@@ -3,8 +3,7 @@
 - Yuhan Mao (yuhanm@andrew.cmu.edu)
 
 ## SUMMARY
-We implemented a parallel and distributed version of Latent Dirichlet allocation algorithm on multiple multi-core CPU machines. Basically there will be two levels of optimization: data partition amongst all machines and concurrently Gibbs sampling over local data on each machine.
-
+We implemented a parallel and distributed version of Latent Dirichlet allocation algorithm on multiple multi-core CPU machines using **MPI** and **OpenMP**. Our **32-core** asynchronized master-worker implementation running on AWS (m4.16xlarge instance with the Intel Xeon E5-2686 v4 CPU) achieves a **28x** speed-up over its 2-core baseline when testing on NYTime dataset, which consists of 1 million documents and 100 million terms.
 
 ## BACKGROUND
 
@@ -83,7 +82,7 @@ Identifying locality is crucial in a parallel program. However, the randomicity 
 
 The sampling for a single word w takes _O(K)_ time, but the actual time could not be easily predicted. This divergence in instruction stream results in weak SIMD utilization.
 
-As for data structure access pattern, both word-topic table and document-topic table are accessed row by row. However, the columns inside each row are accessed randomly submit to a multinomial distribution. 
+As for data structure access pattern, both word-topic table and document-topic table are accessed row by row. The columns inside each row are accessed randomly submit to a multinomial distribution. Both two tables could easily exceed than 20 MB. Caching might be useless for such large tables with pure sequential access pattern in rows and pure random access pattern in columns.
 
 If the vocabulary size is sufficiently greater than the number of processors, the probability that two processors access the same word entry is small, so false sharing is not likely to happen in our case.
 
@@ -208,29 +207,25 @@ We use Log-likelihood to measure the convergence of the LDA. Since the algorithm
 
 ### Experimental Setup
 
-<<<<<<< HEAD
 The sanity check is against 20news Dataset [6] which includes 18,774 documents with a vocabulary size of 60,056.
 
 The thorough experiments are performed on NYTimes corpus from UCI Machine Learning Repository[7], which consists of 102,660 documents and a vocabulary size of 299,752. The total number of word occurences is around 100,000,000. 
 
 Other setthings for Gibbs sampling are lists as follow:
 
-| Parameter | Value |
-|:---------:|:-----:|
-|     K     |   20  |
-|     α     |  0.1  |
-|     β     |  0.1  |
+|  Parameter  | Value |
+|:-----------:|:-----:|
+|     _K_     |   20  |
+|     _α_     |  0.1  |
+|     _β_     |  0.1  |
+|     _T_     |  100  |
 | checkpoint (synchronize every) | 10,000 |
 
 _K_ was set to a relatively small number because 1) we want to explore the parallel Gibbs sampling on rather dense word-topic tables; 2) limit training time so that we could produce comprehensive evaluation.
 
-We ran both the synchronized and asynchrnoized version of LDA program using from 2 cores up to 16 cores on GHC machines, which has 8 physical cores (2 hyper-threads) 3.2 GHz Intel Core i7 processors. 
+We ran both the synchronized and asynchrnoized version of LDA program using from 2 cores up to 16 cores on GHC machines, which has 8 physical cores (2 hyper-threads) 3.2 GHz Intel Core i7 processors and the L3 cache size is 20MB. 
 
 Though the program also supports distribution across machines on the cluster, we chose to do our experiments only using multi-core configurations because the dataset is not large enough to let the speedup from parallelism overwhelm the latency of transferring large buffer using network.
-
-### Baselines
-
-Our baseline is the sequential version of the LDA program on C++.
 
 #### Convergence
 
@@ -238,13 +233,23 @@ Our baseline is the sequential version of the LDA program on C++.
 
 ![Convergence]({{ site.github.proposal_url }}img/async-converge.jpg)
 
+The two pictures above display the convergence behavior of our program. Both synchronized and asynchronized implementation eventually converge to similar likelihood as the number of workers goes up. It demonstrates that this parallel approximation to true Gibbs sampling produces comparable result but much faster when leveraging more resources. The asynchronized version is slightly faster.
+
 #### Scalability
 
 ![Scalability]({{ site.github.proposal_url }}img/ghc.jpg)
 
+While the accuracy of the program has been proved by previous graphs, we moves on to investigate the scalability of this algorithm. The speed up is calculated relative to the total time of running 100 iterations using 2 processes. We chose to be 2 because the asynchronized version requires an additional master.
+
+As depicted in the plot, there's a near-linear speedup before the number of processes approachs 8. The possible explanation for this phenomenon is the physical limitation of the GHC machines. As the number of processes surpasses 8, the process starts to make use of hyper-threading, which might spend additional time in switching execution context.
+
+While the program was running, we profiled the system resourse usage by looking at the CPU utilization. It's around 103% when we were running on 8 processes but only 70% when 16 processes were up.
+
 #### Communication Overhead
 
 ![Communication Overhead]({{ site.github.proposal_url }}img/comm.jpg)
+
+We broken the execution time of our problem into communication time and Gibbs sampling time to conduct a deeper analysis on its performance. The hypothesis here is that the larger percentage of time spent in Gibbs sampling, the more scalable the algorithm is. It's because the program spent less time in communication than doing real useful computations. Our asynchronized implementation exerts much higher percentage as opposed to its synchronized counterparts. 
 
 ### Additional Experiments: AWS
 
@@ -254,7 +259,7 @@ Beside the change of the machine, we also reduced the communication times by inc
 
 Here is the results we have:
 
-![Synchronized LDA]({{ site.github.proposal_url }}img/aws.jpg)
+![Additional Experiments: AWS]({{ site.github.proposal_url }}img/aws.jpg)
 
 By decreasing times of the synchronization, both the synchronized and asynchronized version can achieve a even better speedup compared to the previous experiment with 16 cores or less, which is a almost linear speedup. Besides, the speedup achieved on AWS on 16 cores compared to that on the GHC machine provided our guess that the hyper-threading is the reason for the unsatisfying performance for 16 workers on GHC machine.
 
