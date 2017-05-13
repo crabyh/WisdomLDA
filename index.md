@@ -16,18 +16,18 @@ Below is the conventions used in this report.
 
 | Symbol |                 Description                |   Range   |
 |:------:|:------------------------------------------:|:---------:|
-|   $N$  |    Corpus size (number of all the terms)   | 15M+      |
-|   $W$  | Vocabulary size (number of distinct terms) | 15K+      |
-|   $K$  |           Number of latent topics          | 10 - 3000 |
-|   $D$  |             Number of documents            | 30K+      |
-|   $T$  |             Number of iterations           | 1K+       |
+|   _N_  |    Corpus size (number of all the terms)   | 15M+      |
+|   _W_  | Vocabulary size (number of distinct terms) | 15K+      |
+|   _K_  |           Number of latent topics          | 10 - 3000 |
+|   _D_  |             Number of documents            | 30K+      |
+|   _T_  |             Number of iterations           | 1K+       |
 
 
 #### Input and Output
 
 The brief idea of Collapsed Gibbs sampling (CGS), known as the solver for LDA, is shown in the graphs [2] as follows :
 
-![Input and Output]({{ site.github.proposal_url }}graph3.png)
+![Input and Output]({{ site.github.proposal_url }}img/graph3.png)
 
 This unsupervised generative algorithm starts off by taking a collection of documents as input, in which each document is represented as a stream of word tokens. The output is a word-topic distribution table and a document-topic distribution table that could be used to predict the topic of a given document.
 
@@ -35,12 +35,12 @@ This unsupervised generative algorithm starts off by taking a collection of docu
 
 The data structure involved here are fairly straightforward:
 
-- Document-topic distribution table: a two-dimensional array of size $D \times K$
-- Document-word-topic assignment table: a two-dimensional array of size $D \times W$
-- Word-topic distribution table: a two-dimensional array of size $W \times K$
-- Topic distribution table: a one-dimensional array of size $K$ 
+- Document-topic distribution table: a two-dimensional array of size _DK_
+- Document-word-topic assignment table: a two-dimensional array of size _DW_
+- Word-topic distribution table: a two-dimensional array of size _WK_
+- Topic distribution table: a one-dimensional array of size _K_
 
-According to the common range of each parameter, the topic distribution table is trivial to store. It's the document-topic distribution and the document-word-topic assignment table, as well as the word-topic distribution table the real killers to traverse and to communicate with. The upper bound of $W$ is limited by the Zipf's Law in English languages. However, $D$ could reach a much higher value, especially in large-scale data analysis.
+According to the common range of each parameter, the topic distribution table is trivial to store. It's the document-topic distribution and the document-word-topic assignment table, as well as the word-topic distribution table the real killers to traverse and to communicate with. The upper bound of _W_ is limited by the Zipf's Law in English languages. However, _D_ could reach a much higher value, especially in large-scale data analysis.
 
 #### Operations
 
@@ -68,19 +68,20 @@ The largest challenge is that Gibbs sampling by definition is a strictly sequent
 
 #### Workload and Dependencies
 
-As we noticed that the topic assignment of a word depends more on the topic of other words in the same documents ($n_{d,k}$) than those elsewhere in the corpus (word-topic distribution $n_{k,w}$ and topic distribution $n_k$) because these probabilities, as calculated following, only change slowly.
+As we noticed that the topic assignment of a word depends more on the topic of other words in the same documents (_n\_d,k_) than those elsewhere in the corpus (word-topic distribution _n\_k,w_ and topic distribution _n\_k_) because these probabilities, as calculated following, only change slowly.
 
-$p(z = k|\cdot) = \frac{n_{k,w}+\beta}{n_k+\beta{W}} (n_{d,k}+\alpha)$ 
+![Workload and Dependencies]({{ site.github.proposal_url }}img/formula.jpg)
 
-Thus, it's possible to release the strict dependency and approximate this sampling process by randomly assigning documents to $p$ processors, then have each processor performed local sampling process and merge updates after a period of time. Newman, et al [3] have already investigated the effects of deferred update, and they found it will net correctness of the Gibbs sampling, but only results in slightly slower convergence.
 
-![Workload and Dependencies]({{ site.github.proposal_url }}ad-lda.jpg)
+Thus, it's possible to release the strict dependency and approximate this sampling process by randomly assigning documents to _p_ processors, then have each processor performed local sampling process and merge updates after a period of time. Newman, et al [3] have already investigated the effects of deferred update, and they found it will net correctness of the Gibbs sampling, but only results in slightly slower convergence.
+
+![Workload and Dependencies]({{ site.github.proposal_url }}img/ad-lda.jpg)
 
 #### Locality Analysis
 
 Identifying locality is crucial in a parallel program. However, the randomicity of Gibbs sampling prevents us from utilizing SIMD operations or any elaborate caching strategies. 
 
-The sampling for a single word w takes $O(K)$ time, but the actual time could not be easily predicted. This divergence in instruction stream results in weak SIMD utilization.
+The sampling for a single word w takes _O(K)_ time, but the actual time could not be easily predicted. This divergence in instruction stream results in weak SIMD utilization.
 
 As for data structure access pattern, both word-topic table and document-topic table are accessed row by row. However, the columns inside each row are accessed randomly submit to a multinomial distribution. 
 
@@ -88,7 +89,7 @@ If the vocabulary size is sufficiently greater than the number of processors, th
 
 #### Compuationally Expensive Part
 
-This algorithm is computationally intensive when $K$ is not too small. For each inner loop, there are 6 loads and stores and $6 + 6 * K + O(K)$ computations. And a single loop will be repeated for $N * T$ times.   
+This algorithm is computationally intensive when _K_ is not too small. For each inner loop, there are 6 loads and stores and _6 + 6K + O(K)_ computations. And a single loop will be repeated for _NT_ times.   
 
 ### Parallelism Description
 
@@ -96,12 +97,12 @@ In this project, we leveraged the data-parallel model to partition the document 
 
 As a result,the time complexity and space complexity become:
 
-|       |  Sequential  |               Parallel              |
-|:-----:|:------------:|:-----------------------------------:|
-| Space |  $N+K(D+W)$  | $\frac{N+K \times D}{P}+K \times W$ |
-|  Time | $N \times K$ |     $\frac{NK}{P}+K \times W+C$     |
+|       |    Sequential    |       Parallel      |
+|:-----:|:----------------:|:-------------------:|
+| Space |  _N + K (D + W)_ | _(N + KD) / P + KW_ |
+|  Time |      _NK_        |  _NK / P + KW + C_  |
 
-$K \times W+C$ is considered the communication overhead. We tried our best efforts to minimize this overhead while maintaining reasonable converge rate.
+_KW + C_ is considered the communication overhead. We tried our best efforts to minimize this overhead while maintaining reasonable converge rate.
 
 ## APPROACH
 
@@ -123,58 +124,66 @@ If you started with an existing piece of code, please mention it (and where it c
 
 ### Problem Mapping
 
-First, we map a worker or master to a process. A worker is mapped to a process who does the real work in the LDA algorithm we talked above -- Gibbs Sampling; A master is also mapped to a process to coordinate the communication amongst workers, maintaining the per-word topic assignment and topic parameter in the up chart as well as calculate the log-likelyhood after each iteration to evaluate the convergence of the algorithm.  Since the process can be assigned to the same machine or different machine and so as MPI, our algorithm can be easily distributed to multiple machines with minor or no modification. Second, we separate the total documents randomly to all the workers. In each iteration, the worker performs gibbs sampling on their local copy of the parameter tables and records the updates. They Synchronize these local parameters tables with the master every certain time.
+First, we map a worker or master to a process. 
+
+A worker -> a process who does the real work in the LDA algorithm we talked above -- Gibbs Sampling;
+A master -> a process to coordinate the communication amongst workers, maintaining the per-word topic assignment and topic parameter in the up chart as well as calculate the log-likelihood after each iteration to evaluate the convergence of the algorithm. 
+
+ Since the process can be assigned to the same machine or different machines and so as MPI, our algorithm can be easily distributed to multiple machines with minor or no modification. Second, we separate the entire documents randomly to all the workers. In each iteration, the worker performs Gibbs sampling on their local copy of the parameter tables and records the updates. They Synchronize these local parameters tables with the master every particular time.
 
 
 ### Approximation Algorithm
 
-The algorithm has strict-sequential dependency for every step of the Gibbs Sampling. However, due to the size of the table space and the characteristic of the algorithm, there is a very low chance of conflict. And more importantly, the conflict of the updates may not impact the correctness of the algorithm. Because the sampling itself is a random process, staleness of the parameters only leads to slower convergence. This effect has even trial influence when there are large topic number (e.g. 1000), so we decide to make it hard for our algorithm and limit our experiments to 20 topics.
+The algorithm has a strict-sequential dependency for every step of the Gibbs Sampling. However, due to the size of the table space and the characteristic of the algorithm, there is a very low chance of conflict. And more importantly, the conflict of the updates may not impact the correctness of the algorithm. Because the sampling itself is a random process, staleness of the parameters only leads to slower convergence. This effect has even trial influence when there is a large topic number (e.g. 1000), so we decide to make it hard for our algorithm and limit our experiments to 20 topics.
 
 ### Proposed Method
 
 We implemented the distributed and parallel version of LDA from scratch in C++ with the support of MPI. The following graph scatches our pipeline.
 
-![Proposed Method]({{ site.github.proposal_url }}plda-diagram.png)
+![Proposed Method]({{ site.github.proposal_url }}img/plda-diagram.png)
 
-The synchronization is carried out at every checkpoint. Our program supports setting up the checkpoint after processing a certain amount of documents. It could be within the same iteration (i.e. every 1/10 iteration) or after several iterations. This is a parameter to be tuned in order to achieve trade-off between efficiency and convergence.
+The synchronization is carried out at every checkpoint. Our program supports setting up the checkpoint after processing a certain amount of documents. It could be within the same iteration (i.e. every 1/10 iteration) or after several iterations. This is a parameter to be tuned to achieve a trade-off between efficiency and convergence.
 
 #### Synchronized LDA
 
-This is simple algorithm proposed by Newman. In this setting, every worker, along with the master synchronizes their parameters at every checkpoint. When they are sending messages, all the workers are blocked until all of them have the most up-to-dated parameter tables back from the master. Below is the chart illustrating this workflow:
+This is a simple algorithm proposed by Newman. In this setting, every worker, along with the master synchronizes their parameters at every checkpoint. When they are sending messages, all the workers are blocked until all of them have the most up-to-dated parameter tables back from the master. Below is the chart illustrating this workflow:
 
-![Synchronized LDA]({{ site.github.proposal_url }}graph1.png)
+![Synchronized LDA]({{ site.github.proposal_url }}img/graph1.png)
 
 #### Asynchronized LDA
 
 The long blocking window limits the scalability of this algorithm because as the number of workers increases, the communication overhead grows significantly. Facing this issue, we proposed an asynchronized version that allows the communication overhead to be hidden. The idea is illustrated in the following plots.
 
-![Synchronized LDA]({{ site.github.proposal_url }}sync.jpg)
+![Synchronized LDA]({{ site.github.proposal_url }}img/sync.jpg)
 
-![Synchronized LDA]({{ site.github.proposal_url }}async.jpg)
+![Synchronized LDA]({{ site.github.proposal_url }}img/async.jpg)
 
-In the asynchronized LDA. All the workers send their parameter to the master at the checkpoint. Unlike the synchronized one, the worker returns immediately instead of block waiting for the synchronization to complete and allocates a buffer for the incoming update while continuing perform gibbs sampling on the next trunk of the documents using the current parameter tables. Below is the chart illustrating this workflow:
+In the asynchronized LDA. All the workers send their parameter to the master at the checkpoint. Unlike the synchronized one, the worker does not wait for every other to arrive at the checkpoint. 
 
-![Asynchronized LDA]({{ site.github.proposal_url }}graph2.png)
+Each worker could send an update request by attaching its local delta table to the master. The master applies the parameter updates received from this worker to the global parameters it currently holds and replies the worker with the latest version. The blocking window is much shorter since the worker does not need to wait for anyone else to arrive at the checkpoint.
 
-### Speed-up Tricks
-1. All reduce in the synchronized version.
-2. Using OpenMP in the Gibbs Sampling part to use the available sources. (it is turned off while running on the GHC machine)
+returns immediately instead of block waiting for the synchronization to complete and allocates a buffer for the incoming update while continuing to perform Gibbs sampling on the next trunk of the documents using the current parameter tables. Below is the chart illustrating this workflow:
 
-### Trials (A lot of!!!) and Analysis
+![Asynchronized LDA]({{ site.github.proposal_url }}img/graph2.png)
+
+### Unsuccessful Trials (A lot of!!!)
+
+#### Delta Table
+
+We attempted to use a delta table to communicate with workers and master, i.e. workers send their delta table since the last synchronization to the master and master merges all the delta tables of the workers and send the merged(global) one back to all the workers. The advantages of this approach are the delta table can be compressed to reduce the message size for sparse delta parameters tables. However, it needs an extra iteration of the word topic table to apply the global update to the local parameters table when the worker receives the global delta table.
 
 #### Sparse Matrix Representation
 
 While frequent communications maybe expected sometimes (when checkpoint = every 100 documents), we thought it might be better to transfer only the updated indices instead of the raw word topic tables. We utilized an unordered hashmap to store the updates between each two iterations. The higher 24 bits of the key represents the word while the low 8 bits represents the topic. The value denotes the corresponding word-topic count. This is designed to reduce the communication overhead by compressing the delta table to a smaller size. 
 
-The performance is not ideal because of the power low between corpus size and vocabulary, which is to say even the number of documents is not large, the probability that we see most of the wo the density of the word topic table varies a lot for different datasets and parameters(especially topic number K), this trick works well for larger topic number while is not so helpful in our experiment scenario (K=20).
+The performance is not ideal because of the power low between corpus size and vocabulary, which is to say even the number of documents is not large, the probability that we see most of the words is still pretty high. When the number of topics is not large, the merged word-topic table is still rather dense because the tables from different workers vary a lot since they are generated from different datasets and parameters. In our setting (K = 20), the overhead for marshaling and unmarshalling counteracts the time saved in transferring data.
 
-#### Delta Table
+This trick hopefully works well for larger topic number (K >= 1000). However, larger topic number requires much more computations during each iteration. The machines available for us cannot be used to conduct long-term training. 
 
-We tried using a delta table to communicate with workers and master, i.e. workers send their delta table since last synchronization to the master and master merges all the delta tables of the workers and send the merged(global) one back to all the workers. The advantages of this approach is the delta table can be compressed to reduce the message size for sparse delta parameters tables. However, it need an extra iteration of the word topic table to apply the global update to the local parameters table when the worker receive the global delta table.
+#### Asynchronized Message Passing  Iterations
 
-3. We've also tried using a asynchronized way to handle the receiving global update table for the workers. The original intention for this approach is to hide the latency of the synchronization. I.e. instead of block waiting for the master to process the merge and send the global table back, worker can still process the Gibbs Sampling with its current parameter table. But the price we pay for this is we need another piece of memory to store the incoming global tables and has to check if the incoming tables have been received regularly. Again, this methods should provide better performance for larger word topic table (larger K and vocabulary size) since the communication time is longer and worth to be hidden, but has trivial impact on our current settings. 
+We've also tried using an asynchronized way to handle the receiving global update table for the workers. The original intention for this approach is to hide the latency of the synchronization. Instead of block waiting for the master to process the merge and send the global table back, a worker can still proceed the Gibbs Sampling with its current parameter table. But the price we pay for this is we need another piece of memory to store the incoming global tables and has to check if the incoming tables have been received regularly. Again, this method should provide better performance for larger word topic table (larger K and vocabulary size) since the communication time is longer and worth to be hidden, but has a trivial impact on our current settings. 
  
-
 
 ## RESULTS AND DISCUSSION
 <!--
